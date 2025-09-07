@@ -1,14 +1,17 @@
-<nav class="h-16 flex items-center justify-between px-4 bg-blue-600 shadow-lg">
+<nav class="h-16 flex items-center justify-between px-4 bg-white shadow-lg">
 
-  <button (click)="onMenuClick()" class="p-2.5 text-white hover:bg-white/10 rounded-lg transition-colors duration-200">
+  <!-- Menu Hamburguesa -->
+  <button (click)="onMenuClick()"
+    class="p-2.5 text-[#021133] hover:bg-[#040E1C]/70 rounded-lg transition-colors duration-200">
     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
     </svg>
   </button>
 
+  <!-- Iconos a la derecha -->
   <div class="flex items-center space-x-2">
 
-    <button class="relative p-2.5 text-white hover:bg-white/10 rounded-lg transition-colors duration-200">
+    <button class="relative p-2.5 text-[#021133] hover:bg-[#040E1C]/70 rounded-lg transition-colors duration-200">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
           d="M15 17h5l-3.403-3.403A5.998 5.998 0 0016 11V7a4 4 0 10-8 0v4c0 1.201.355 2.312.97 3.245L6 17h5m4 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -19,9 +22,8 @@
       </span>
     </button>
 
-
-    <button (click)="toggleTheme()" class="p-2.5 text-white hover:bg-white/10 rounded-lg transition-colors duration-200"
-      title="Cambiar tema">
+    <button (click)="toggleTheme()"
+      class="p-2.5 text-[#021133] hover:bg-[#040E1C]/70 rounded-lg transition-colors duration-200" title="Cambiar tema">
 
       <svg *ngIf="isDarkMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
