@@ -15,9 +15,14 @@ export class Slidebard {
   private sessionService = inject(SessionService);
 
   menuItems = [
-    { id: 'dashboard', name: 'Dashboard', icon: 'home', path: '/company/dashboard' },
-    { id: 'users', name: 'Usuarios', icon: 'users', path: '/company/users' },
-
+    {
+      id: 'dashboard',
+      name: 'Dashboard',
+      icon: 'home',
+      path: '/company/dashboard',
+    },
+    { id: 'users', name: 'Conductores', icon: 'user', path: '/company/users' },
+    { id: 'Buses', name: 'Buses', icon: 'bus', path: '/company/buses' },
     {
       id: 'settings',
       name: 'Configuración',
@@ -27,6 +32,7 @@ export class Slidebard {
   ];
 
   activeItem = 'dashboard';
+
   onItemClick(itemId: string): void {
     const item = this.menuItems.find((menu) => menu.id === itemId);
     if (item) {
@@ -44,3 +50,4 @@ export class Slidebard {
     return item.id;
   }
 }
+

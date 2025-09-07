@@ -47,11 +47,12 @@ export class HttpClientService {
       .pipe(catchError(handleHttpError));
   }
 
-  patch<T>(path: string, body: unknown): Observable<T> {
+  patch<T>(path: string, body: unknown, params?: HttpParams): Observable<T> {
     const isFormData = body instanceof FormData;
     return this.http
       .patch<T>(`${this.baseUrl}/${path}`, body, {
         headers: this.getDefaultHeaders(isFormData),
+        params,
       })
       .pipe(catchError(handleHttpError));
   }

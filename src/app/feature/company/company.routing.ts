@@ -20,6 +20,12 @@ export const COMPANY_ROUTES: Routes = [
         title: 'Dashboard',
       },
       {
+        path: 'buses',
+        loadComponent: () =>
+          import('./pages/bus/bus').then((m) => m.Bus),
+        title: 'Dashboard',
+      },
+      {
         path: 'users',
         loadComponent: () => import('./pages/users/users').then((m) => m.Users),
         title: 'Gestión de Usuarios',

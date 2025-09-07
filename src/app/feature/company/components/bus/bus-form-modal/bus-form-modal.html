@@ -1,0 +1,118 @@
+<div *ngIf="isOpen" class="fixed inset-0 z-40" style="background-color: rgba(0, 0, 0, 0.4);">
+</div>
+<div *ngIf="isOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4" (click)="closeModal()">
+  <div class="p-5 border w-11/12 md:w-2/3 lg:w-1/2 shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto"
+    (click)="$event.stopPropagation()">
+
+    <!-- Header -->
+    <div class="flex justify-between items-center pb-4 border-b">
+      <h3 class="text-lg font-medium text-gray-900">Editar Bus</h3>
+      <button (click)="closeModal()" class="text-gray-400 hover:text-gray-600">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Form -->
+    <form [formGroup]="busForm" (ngSubmit)="onSubmit()" class="mt-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- Placa -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Placa *</label>
+          <input type="text" formControlName="placa" placeholder="ABC-123"
+            [class]="hasError('placa') ?
+              'w-full px-3 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500' :
+              'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'">
+          <p *ngIf="hasError('placa')" class="mt-1 text-sm text-red-600">{{ getErrorMessage('placa') }}</p>
+        </div>
+
+        <!-- Modelo -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Modelo *</label>
+          <input type="text" formControlName="modelo" placeholder="Mercedes Benz Sprinter"
+            [class]="hasError('modelo') ?
+              'w-full px-3 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500' :
+              'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'">
+          <p *ngIf="hasError('modelo')" class="mt-1 text-sm text-red-600">{{ getErrorMessage('modelo') }}</p>
+        </div>
+
+        <!-- Capacidad -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Capacidad *</label>
+          <input type="number" formControlName="capacidad" placeholder="25" min="1"
+            [class]="hasError('capacidad') ?
+              'w-full px-3 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500' :
+              'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'">
+          <p *ngIf="hasError('capacidad')" class="mt-1 text-sm text-red-600">{{ getErrorMessage('capacidad') }}</p>
+        </div>
+
+        <!-- Año -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Año *</label>
+          <input type="number" formControlName="anio" placeholder="2023" min="2000" max="2030"
+            [class]="hasError('anio') ?
+              'w-full px-3 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500' :
+              'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'">
+          <p *ngIf="hasError('anio')" class="mt-1 text-sm text-red-600">{{ getErrorMessage('anio') }}</p>
+        </div>
+
+        <!-- Color -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Color *</label>
+          <select formControlName="color"
+            [class]="hasError('color') ?
+              'w-full px-3 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500' :
+              'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'">
+            <option value="">Seleccionar color</option>
+            <option value="Blanco">Blanco</option>
+            <option value="Azul">Azul</option>
+            <option value="Rojo">Rojo</option>
+            <option value="Verde">Verde</option>
+            <option value="Amarillo">Amarillo</option>
+            <option value="Gris">Gris</option>
+          </select>
+          <p *ngIf="hasError('color')" class="mt-1 text-sm text-red-600">{{ getErrorMessage('color') }}</p>
+        </div>
+
+        <!-- Estado -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Estado *</label>
+          <select formControlName="estado"
+            [class]="hasError('estado') ?
+              'w-full px-3 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500' :
+              'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'">
+            <option value="ACTIVO">Activo</option>
+            <option value="INACTIVO">Inactivo</option>
+            <option value="MANTENIMIENTO">Mantenimiento</option>
+          </select>
+          <p *ngIf="hasError('estado')" class="mt-1 text-sm text-red-600">{{ getErrorMessage('estado') }}</p>
+        </div>
+
+      </div>
+
+      <!-- Botones -->
+      <div class="flex justify-end space-x-3 mt-8 pt-6 border-t">
+        <button type="button" (click)="closeModal()" [disabled]="isSubmitting"
+          class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50">
+          Cancelar
+        </button>
+        <button type="submit" [disabled]="!busForm.valid || isSubmitting"
+          class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+          <span *ngIf="isSubmitting" class="inline-flex items-center">
+            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none"
+              viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+              </path>
+            </svg>
+            Actualizando...
+          </span>
+          <span *ngIf="!isSubmitting">Actualizar</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
