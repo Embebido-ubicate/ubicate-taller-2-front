@@ -3,14 +3,11 @@ import { inject } from '@angular/core';
 import { catchError, finalize } from 'rxjs/operators';
 import { throwError } from 'rxjs';
 
-// Contador global de requests activos
 let activeRequests = 0;
 
 export const httpInterceptor: HttpInterceptorFn = (req, next) => {
-  // Incrementar contador de requests activos
   activeRequests++;
 
-  // Clonar request para agregar headers
   let modifiedRequest = req.clone({
     setHeaders: {
       'Content-Type': 'application/json',
@@ -18,7 +15,6 @@ export const httpInterceptor: HttpInterceptorFn = (req, next) => {
     },
   });
 
-  // Agregar token de autorización si existe
   const token = getAuthToken();
   if (token) {
     modifiedRequest = modifiedRequest.clone({
@@ -28,7 +24,6 @@ export const httpInterceptor: HttpInterceptorFn = (req, next) => {
     });
   }
 
-  // Log del request (solo en desarrollo)
   if (!isProduction()) {
     console.log('🚀 HTTP Request:', {
       method: modifiedRequest.method,
@@ -40,35 +35,29 @@ export const httpInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(modifiedRequest).pipe(
     catchError((error: HttpErrorResponse) => {
-      // Manejo global de errores
       handleError(error);
       return throwError(() => error);
     }),
     finalize(() => {
-      // Decrementar contador cuando termine el request
       activeRequests--;
     })
   );
 };
 
 function getAuthToken(): string | null {
-  // Obtener token desde localStorage, sessionStorage o service
   return localStorage.getItem('auth_token');
 }
 
 function isProduction(): boolean {
-  // Verificar si estamos en producción
-  return false; // Cambiar según tu configuración
+  return false;
 }
 
 function handleError(error: HttpErrorResponse): void {
   let errorMessage = 'Error desconocido';
 
   if (error.error instanceof ErrorEvent) {
-    // Error del lado del cliente
     errorMessage = `Error: ${error.error.message}`;
   } else {
-    // Error del lado del servidor
     switch (error.status) {
       case 400:
         errorMessage = 'Solicitud incorrecta';
@@ -94,7 +83,6 @@ function handleError(error: HttpErrorResponse): void {
     }
   }
 
-  // Log del error
   console.error('❌ HTTP Error:', {
     status: error.status,
     message: errorMessage,
@@ -102,25 +90,15 @@ function handleError(error: HttpErrorResponse): void {
     error: error.error,
   });
 
-  // Mostrar notificación al usuario (opcional)
   showErrorNotification(errorMessage);
 }
 
 function handleUnauthorized(): void {
-  // Limpiar token y redirigir al login
   localStorage.removeItem('auth_token');
-  // window.location.href = '/login';
 }
 
-function showErrorNotification(message: string): void {
-  // Implementar notificación toast o alert
-  // Ejemplo básico:
-  // alert(message);
-  // O usar una librería como ngx-toastr:
-  // this.toastr.error(message);
-}
+function showErrorNotification(message: string): void {}
 
-// Función para verificar si hay requests activos (útil para loading states)
 export function hasActiveRequests(): boolean {
   return activeRequests > 0;
 }
