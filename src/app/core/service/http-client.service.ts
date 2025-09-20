@@ -17,6 +17,13 @@ export class HttpClientService {
     if (!isFormData) {
       headers = headers.set('Content-Type', 'application/json');
     }
+
+    // AGREGADO: Token de autorización automático
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      headers = headers.set('Authorization', `Bearer ${token}`);
+    }
+
     return headers;
   }
 
