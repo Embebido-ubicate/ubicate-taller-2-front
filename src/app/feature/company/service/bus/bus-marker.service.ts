@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
-import { Bus } from '../models/buses.model';
+import { Bus } from '../../models/buses.model';
 
-// Interface temporal para buses con posición
 export interface BusWithPosition extends Bus {
   position: { lat: number; lng: number };
 }

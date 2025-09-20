@@ -1,6 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { BusService } from '../../../service/bus.service';
+import { BusService } from '../../../service/bus/bus.service';
 import { Bus } from '../../../models/buses.model';
 import { BusFormModal } from '../bus-form-modal/bus-form-modal';
 import { BusDeleteModal } from '../bus-delete-modal/bus-delete-modal';

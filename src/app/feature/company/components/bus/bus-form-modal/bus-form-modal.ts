@@ -14,7 +14,7 @@ import {
   ReactiveFormsModule,
 } from '@angular/forms';
 import { Bus } from '../../../models/buses.model';
-import { BusService } from '../../../service/bus.service';
+import { BusService } from '../../../service/bus/bus.service';
 
 @Component({
   selector: 'app-bus-form-modal',

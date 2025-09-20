@@ -3,8 +3,8 @@ import { CommonModule } from '@angular/common';
 import { ConductorDeleteModal } from '../conductor-delete-modal/conductor-delete-modal';
 import { ConductorEditModal } from '../conductor-edit-modal/conductor-edit-modal';
 import { ConductorFilters } from '../conductor-filters/conductor-filters';
-import { ConductorService } from '../../../service/chofer.service';
-import { BusService } from '../../../service/bus.service';
+import { ConductorService } from '../../../service/chofer/chofer.service';
+import { BusService } from '../../../service/bus/bus.service';
 
 @Component({
   selector: 'app-conductor-table',

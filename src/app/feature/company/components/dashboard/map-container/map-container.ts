@@ -12,7 +12,7 @@ import { Subject, takeUntil } from 'rxjs';
 import {
   RouteService,
   CreateRouteRequest,
-} from '../../../service/route.service';
+} from '../../../service/route/route.service';
 
 import {
   RouteCreatorComponent,
@@ -21,17 +21,14 @@ import {
 import { MapControlsComponent } from '../map-controls/map-controls';
 import { RouteInstructionsComponent } from '../route-instructions/route-instructions';
 import { BusListComponent } from '../../bus-mapa/bus-list/bus-list';
-import { BusMarkerService } from '../../../service/bus-marker.service';
-import { LocationService } from '../../../service/location.service';
-import { RouteMapService } from '../../../service/route-map.service';
+
+import { LocationService } from '../../../service/location/location.service';
+import { RouteMapService } from '../../../service/route/route-map.service';
 import { Bus } from '../../../models/buses.model';
 import { Route } from '../../../models/route.model';
 import { RouteListComponent } from '../route-list/route-list';
+import { BusMarkerService } from '../../../service/bus/bus-marker.service';
 
-// Interface temporal para buses con posición (hasta que venga del backend)
-interface BusWithPosition extends Bus {
-  position: { lat: number; lng: number };
-}
 
 @Component({
   selector: 'app-map-container',
@@ -57,97 +54,23 @@ export class MapContainerComponent implements AfterViewInit, OnDestroy {
   private locationService = inject(LocationService);
   private routeMapService = inject(RouteMapService);
 
-  // Estados del mapa
   center: google.maps.LatLngLiteral = { lat: -8.1116, lng: -79.0288 };
   zoom = 13;
   mapWidth = '100%';
   mapHeight = '100%';
 
-  // Estados de ubicación
   isLocating = false;
   currentLocation: google.maps.LatLngLiteral | null = null;
 
-  // Estados de rutas para crear
   isCreatingRoute = false;
   hasOrigin = false;
   hasDestination = false;
   isAddingWaypoints = false;
   newRoute: RouteFormData = { nombre: '', codigo: '', colorHex: '#FF0000' };
 
-  // Estados de listas
   showBusList = false;
   showRouteList = false;
 
-  // Datos de buses con modelo real
-  buses: Bus[] = [
-    {
-      id: 1,
-      placa: 'ABC-123',
-      modelo: 'Mercedes Benz O500RS',
-      capacidad: 45,
-      anio: '2020',
-      color: '#10B981',
-      estado: 'activo',
-      activo: true,
-      empresa_id: 1,
-      fecha_creacion: '2024-01-15T10:00:00.000Z',
-      fecha_actualizacion: '2024-01-15T10:00:00.000Z',
-    },
-    {
-      id: 2,
-      placa: 'DEF-456',
-      modelo: 'Volvo B7R',
-      capacidad: 50,
-      anio: '2019',
-      color: '#F59E0B',
-      estado: 'parado',
-      activo: true,
-      empresa_id: 1,
-      fecha_creacion: '2024-01-15T10:00:00.000Z',
-      fecha_actualizacion: '2024-01-15T10:00:00.000Z',
-    },
-    {
-      id: 3,
-      placa: 'GHI-789',
-      modelo: 'Scania K360',
-      capacidad: 40,
-      anio: '2018',
-      color: '#EF4444',
-      estado: 'mantenimiento',
-      activo: false,
-      empresa_id: 1,
-      fecha_creacion: '2024-01-15T10:00:00.000Z',
-      fecha_actualizacion: '2024-01-15T10:00:00.000Z',
-    },
-    {
-      id: 4,
-      placa: 'JKL-012',
-      modelo: 'Mercedes Benz Citaro',
-      capacidad: 55,
-      anio: '2021',
-      color: '#3B82F6',
-      estado: 'en_ruta',
-      activo: true,
-      empresa_id: 1,
-      fecha_creacion: '2024-01-15T10:00:00.000Z',
-      fecha_actualizacion: '2024-01-15T10:00:00.000Z',
-    },
-    {
-      id: 5,
-      placa: 'MNO-345',
-      modelo: 'Iveco Urbanway',
-      capacidad: 48,
-      anio: '2017',
-      color: '#F97316',
-      estado: 'inactivo',
-      activo: false,
-      empresa_id: 1,
-      fecha_creacion: '2024-01-15T10:00:00.000Z',
-      fecha_actualizacion: '2024-01-15T10:00:00.000Z',
-    },
-  ];
-
-  // Posiciones temporales para los buses (esto vendría de tu API de GPS)
   private busPositions = new Map([
     [1, { lat: -8.1116, lng: -79.0288 }],
     [2, { lat: -8.108, lng: -79.024 }],
@@ -156,7 +79,6 @@ export class MapContainerComponent implements AfterViewInit, OnDestroy {
     [5, { lat: -8.117, lng: -79.032 }],
   ]);
 
-  // Google Maps internos para rutas
   private originMarker: google.maps.marker.AdvancedMarkerElement | null = null;
   private destinationMarker: google.maps.marker.AdvancedMarkerElement | null =
     null;
@@ -192,7 +114,6 @@ export class MapContainerComponent implements AfterViewInit, OnDestroy {
     this.subscribeToLocationService();
 
     setTimeout(async () => {
-      await this.createBusMarkers();
       this.setupMapClickListener();
     }, 500);
   }
@@ -309,30 +230,11 @@ export class MapContainerComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  // ============ MÉTODOS DE BUSES ============
-  async createBusMarkers() {
-    if (this.map?.googleMap) {
-      const busesWithPosition: BusWithPosition[] = this.buses
-        .map((bus) => {
-          const position = this.busPositions.get(bus.id);
-          if (position) {
-            return { ...bus, position };
-          }
-          return null;
-        })
-        .filter((bus): bus is BusWithPosition => bus !== null);
-
-      await this.busMarkerService.createBusMarkers(
-        busesWithPosition,
-        this.map.googleMap
-      );
-    }
-  }
 
   toggleBusList() {
     this.showBusList = !this.showBusList;
     if (this.showBusList) {
-      this.showRouteList = false; // Cerrar lista de rutas si está abierta
+      this.showRouteList = false;
     }
   }
 
@@ -346,7 +248,6 @@ export class MapContainerComponent implements AfterViewInit, OnDestroy {
         this.map.googleMap.setCenter(position);
         this.map.googleMap.setZoom(17);
 
-        // Crear un info window para mostrar información del bus
         const infoWindow = new google.maps.InfoWindow({
           content: `
             <div class="p-2">
@@ -358,11 +259,9 @@ export class MapContainerComponent implements AfterViewInit, OnDestroy {
           `,
         });
 
-        // Mostrar info window en el marcador del bus
         infoWindow.setPosition(position);
         infoWindow.open(this.map.googleMap);
 
-        // Cerrar info window después de 5 segundos
         setTimeout(() => {
           infoWindow.close();
         }, 5000);
@@ -382,7 +281,7 @@ export class MapContainerComponent implements AfterViewInit, OnDestroy {
   toggleRouteList() {
     this.showRouteList = !this.showRouteList;
     if (this.showRouteList) {
-      this.showBusList = false; // Cerrar lista de buses si está abierta
+      this.showBusList = false;
     }
   }
 
@@ -809,20 +708,5 @@ export class MapContainerComponent implements AfterViewInit, OnDestroy {
       this.map.googleMap.setCenter(this.center);
       this.map.googleMap.setZoom(this.zoom);
     }
-  }
-
-  refreshBusPositions() {
-    // Aquí podrías hacer una llamada a tu API para actualizar posiciones
-    console.log('Actualizando posiciones de buses...');
-    this.createBusMarkers();
-  }
-
-  getTotalActiveBuses(): number {
-    return this.buses.filter((bus) => bus.activo && bus.estado === 'activo')
-      .length;
-  }
-
-  getTotalBusesInRoute(): number {
-    return this.buses.filter((bus) => bus.estado === 'en_ruta').length;
   }
 }

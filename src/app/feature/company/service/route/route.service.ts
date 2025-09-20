@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { HttpClientService } from '../../../core/service/http-client.service';
+import { HttpClientService } from '../../../../core/service/http-client.service';
 import { HttpParams } from '@angular/common/http';
 
 export interface CreateRouteRequest {
@@ -11,7 +11,7 @@ export interface CreateRouteRequest {
   destino?: string;
   colorHex?: string;
   polyline?: string;
-  empresaId: number; // Frontend mantiene number
+  empresaId: number;
   busIds?: number[];
 }
 

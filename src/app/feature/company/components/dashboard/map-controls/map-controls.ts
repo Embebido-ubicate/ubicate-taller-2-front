@@ -11,12 +11,7 @@ export class MapControlsComponent {
   @Input() isLocating = false;
   @Input() isCreatingRoute = false;
 
-  @Output() getLocation = new EventEmitter<void>();
   @Output() startRoute = new EventEmitter<void>();
-
-  onGetLocation() {
-    this.getLocation.emit();
-  }
 
   onStartRoute() {
     this.startRoute.emit();

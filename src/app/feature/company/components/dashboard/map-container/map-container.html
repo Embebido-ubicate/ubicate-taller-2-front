@@ -1,41 +1,17 @@
 <div #mapContainer
   class="relative w-full h-full bg-gray-900 rounded-xl shadow-xl overflow-hidden border border-gray-200">
 
-  <!-- Header del mapa -->
   <div class="absolute top-0 left-0 right-0 z-30 bg-[#021133] text-white p-3">
     <div class="flex justify-between items-center">
       <div class="flex items-center gap-3">
         <h3 class="font-semibold text-sm">🚌 Monitoreo de Flota - Trujillo</h3>
-
       </div>
 
       <div class="flex gap-3 items-center">
-        <!-- Botón para centrar en Trujillo -->
         <button (click)="centerOnTrujillo()"
           class="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors" title="Centrar en Trujillo">
-          🏠
         </button>
 
-        <!-- Botón para actualizar posiciones -->
-        <button (click)="refreshBusPositions()"
-          class="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors"
-          title="Actualizar posiciones">
-          🔄
-        </button>
-
-        <!-- Botón para mostrar lista de buses -->
-        <button (click)="toggleBusList()"
-          class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded-md text-xs transition-colors flex items-center gap-1"
-          [class.bg-blue-800]="showBusList" [disabled]="isCreatingRoute">
-          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
-            </path>
-          </svg>
-          Buses ({{buses.length}})
-        </button>
-
-        <!-- Botón para mostrar lista de rutas -->
         <button (click)="toggleRouteList()"
           class="px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded-md text-xs transition-colors flex items-center gap-1"
           [class.bg-purple-800]="showRouteList" [disabled]="isCreatingRoute">
@@ -51,29 +27,24 @@
     </div>
   </div>
 
-  <!-- Lista de buses - Z-INDEX CORREGIDO -->
-  <app-bus-list [buses]="buses" [isVisible]="showBusList && !isCreatingRoute" (selectBus)="onSelectBus($event)"
+  <app-bus-list [isVisible]="showBusList && !isCreatingRoute" (selectBus)="onSelectBus($event)"
     (close)="onCloseBusList()" class="z-25">
   </app-bus-list>
 
-  <!-- Lista de rutas - Z-INDEX CORREGIDO -->
   <app-route-list [isVisible]="showRouteList && !isCreatingRoute" (selectRoute)="onSelectRoute($event)"
     (close)="onCloseRouteList()" class="z-25">
   </app-route-list>
 
-  <!-- Controles del mapa -->
   <app-map-controls [isLocating]="isLocating" [isCreatingRoute]="isCreatingRoute" (getLocation)="getCurrentLocation()"
     (startRoute)="startCreatingRoute()" class="z-20">
   </app-map-controls>
 
-  <!-- Panel de creación de rutas - Z-INDEX ALTO -->
   <app-route-creator *ngIf="isCreatingRoute" [routeData]="newRoute" [hasDestination]="hasDestination"
     [isAddingWaypoints]="isAddingWaypoints" (cancel)="cancelRouteCreation()" (save)="saveRoute()"
     (clear)="clearRouteMarkers()" (colorChange)="updateRouteColor()" (toggleWaypoints)="toggleWaypointMode()"
     class="z-40">
   </app-route-creator>
 
-  <!-- MENSAJE DE INSTRUCCIÓN PARA CREAR RUTAS -->
   <div *ngIf="isCreatingRoute && !hasOrigin"
     class="absolute top-20 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-35">
     <div class="flex items-center gap-2">
@@ -90,17 +61,14 @@
     </div>
   </div>
 
-  <!-- Mapa -->
   <google-map [center]="center" [zoom]="zoom" [options]="mapOptions" [width]="mapWidth" [height]="mapHeight"
     class="z-10">
   </google-map>
 
-  <!-- Instrucciones -->
   <app-route-instructions [isCreatingRoute]="isCreatingRoute" [hasOrigin]="hasOrigin" [hasDestination]="hasDestination"
     class="z-15">
   </app-route-instructions>
 
-  <!-- Loading overlay -->
   <div *ngIf="isLocating" class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
     <div class="bg-white rounded-lg p-4 flex items-center gap-3">
       <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>

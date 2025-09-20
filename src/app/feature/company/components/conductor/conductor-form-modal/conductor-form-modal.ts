@@ -13,7 +13,7 @@ import {
   Validators,
   ReactiveFormsModule,
 } from '@angular/forms';
-import { ConductorService } from '../../../service/chofer.service';
+import { ConductorService } from '../../../service/chofer/chofer.service';
 
 @Component({
   selector: 'app-conductor-form-modal',

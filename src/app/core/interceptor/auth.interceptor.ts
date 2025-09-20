@@ -24,15 +24,6 @@ export const httpInterceptor: HttpInterceptorFn = (req, next) => {
     });
   }
 
-  if (!isProduction()) {
-    console.log('🚀 HTTP Request:', {
-      method: modifiedRequest.method,
-      url: modifiedRequest.url,
-      headers: modifiedRequest.headers,
-      body: modifiedRequest.body,
-    });
-  }
-
   return next(modifiedRequest).pipe(
     catchError((error: HttpErrorResponse) => {
       handleError(error);
@@ -48,56 +39,19 @@ function getAuthToken(): string | null {
   return localStorage.getItem('auth_token');
 }
 
-function isProduction(): boolean {
-  return false;
-}
-
 function handleError(error: HttpErrorResponse): void {
   let errorMessage = 'Error desconocido';
 
-  if (error.error instanceof ErrorEvent) {
-    errorMessage = `Error: ${error.error.message}`;
-  } else {
-    switch (error.status) {
-      case 400:
-        errorMessage = 'Solicitud incorrecta';
-        break;
-      case 401:
-        errorMessage = 'No autorizado - Inicia sesión nuevamente';
-        handleUnauthorized();
-        break;
-      case 403:
-        errorMessage = 'Acceso prohibido';
-        break;
-      case 404:
-        errorMessage = 'Recurso no encontrado';
-        break;
-      case 500:
-        errorMessage = 'Error interno del servidor';
-        break;
-      case 503:
-        errorMessage = 'Servicio no disponible';
-        break;
-      default:
-        errorMessage = `Error ${error.status}: ${error.message}`;
-    }
+  switch (error.status) {
+    case 400: errorMessage = 'Solicitud incorrecta'; break;
+    case 401: errorMessage = 'No autorizado - Inicia sesión nuevamente'; break;
+    case 403: errorMessage = 'Acceso prohibido'; break;
+    case 500: errorMessage = 'Error interno del servidor'; break;
+    default: errorMessage = `Error ${error.status}: ${error.message}`;
   }
 
-  console.error('❌ HTTP Error:', {
-    status: error.status,
-    message: errorMessage,
-    url: error.url,
-    error: error.error,
-  });
-
-  showErrorNotification(errorMessage);
+  console.error('❌ HTTP Error:', { status: error.status, message: errorMessage });
 }
-
-function handleUnauthorized(): void {
-  localStorage.removeItem('auth_token');
-}
-
-function showErrorNotification(message: string): void {}
 
 export function hasActiveRequests(): boolean {
   return activeRequests > 0;

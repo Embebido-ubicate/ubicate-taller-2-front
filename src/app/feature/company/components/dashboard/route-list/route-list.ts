@@ -10,7 +10,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { Subject, takeUntil } from 'rxjs';
 import { Route } from '../../../models/route.model';
-import { RouteMapService } from '../../../service/route-map.service';
+import { RouteMapService } from '../../../service/route/route-map.service';
 
 @Component({
   selector: 'app-route-list',

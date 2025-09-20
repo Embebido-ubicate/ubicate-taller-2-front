@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { HttpClientService } from '../../../core/service/http-client.service';
-import { Bus, BusesStats } from '../models/buses.model';
+import { HttpClientService } from '../../../../core/service/http-client.service';
+import { Bus, BusesStats } from '../../models/buses.model';
 import { HttpParams } from '@angular/common/http';
 
 @Injectable({

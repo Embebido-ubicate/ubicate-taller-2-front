@@ -1,6 +1,6 @@
 import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ConductorService } from '../../../service/chofer.service';
+import { ConductorService } from '../../../service/chofer/chofer.service';
 
 @Component({
   selector: 'app-conductor-delete-modal',

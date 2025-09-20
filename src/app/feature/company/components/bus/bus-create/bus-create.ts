@@ -13,7 +13,7 @@ import {
   Validators,
   ReactiveFormsModule,
 } from '@angular/forms';
-import { BusService } from '../../../service/bus.service';
+import { BusService } from '../../../service/bus/bus.service';
 import { Bus } from '../../../models/buses.model';
 
 @Component({

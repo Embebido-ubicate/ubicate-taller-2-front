@@ -1,7 +1,7 @@
 import { Component, Input, Output, EventEmitter, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Bus } from '../../../models/buses.model';
-import { BusService } from '../../../service/bus.service';
+import { BusService } from '../../../service/bus/bus.service';
 
 @Component({
   selector: 'app-bus-delete-modal',

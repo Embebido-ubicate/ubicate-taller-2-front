@@ -9,7 +9,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { ConductorService } from '../../../service/chofer.service';
+import { ConductorService } from '../../../service/chofer/chofer.service';
 
 @Component({
   selector: 'app-conductor-edit-modal',

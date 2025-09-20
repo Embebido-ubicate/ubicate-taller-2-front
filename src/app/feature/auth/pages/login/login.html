@@ -1,45 +1,30 @@
 <div class="min-h-screen flex flex-col lg:flex-row" style="background-color: #132137;">
-  <section
-    class="relative w-full lg:w-1/2 h-64 sm:h-80 md:h-96 lg:h-screen flex-shrink-0 order-2 lg:order-1 overflow-hidden">
-    <div class="absolute inset-0 bg-center" style="background-image:url('/banner/banner.png'); background-size: 95%;">
-    </div>
+  <section class="relative w-full lg:w-1/2 h-64 sm:h-80 md:h-96 lg:h-screen flex-shrink-0 order-2 lg:order-1 overflow-hidden">
+    <div class="absolute inset-0 bg-center" style="background-image:url('/banner/banner.png'); background-size: 95%;"></div>
   </section>
 
-  <section
-    class="w-full lg:w-1/2 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 lg:p-12 xl:p-16 order-1 lg:order-2 min-h-screen lg:min-h-0 bg-white">
-
+  <section class="w-full lg:w-1/2 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 lg:p-12 xl:p-16 order-1 lg:order-2 min-h-screen lg:min-h-0 bg-white">
     <div class="mb-8 text-center">
-      <h2 class="text-2xl md:text-3xl font-bold text-[#040E1C] mb-2">
-        Iniciar Sesión
-      </h2>
-      <p class="text-gray-600 text-sm md:text-base">
-        Ingresa tus credenciales para continuar
-      </p>
+      <h2 class="text-2xl md:text-3xl font-bold text-[#040E1C] mb-2">Iniciar Sesión</h2>
+      <p class="text-gray-600 text-sm md:text-base">Ingresa tus credenciales para continuar</p>
     </div>
 
     <div class="w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl">
       <div class="bg-white border border-gray-200 rounded-2xl p-6 md:p-8 shadow-xl">
-
         <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="space-y-6">
-
-          <!-- Error Message -->
           <div *ngIf="errorMessage" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
             {{ errorMessage }}
           </div>
 
           <div>
-            <label for="email" class="block text-sm md:text-base font-medium text-[#040E1C] mb-2">
-              Correo electrónico
-            </label>
+            <label for="email" class="block text-sm md:text-base font-medium text-[#040E1C] mb-2">Correo electrónico</label>
             <input id="email" name="email" type="email" formControlName="email"
               class="w-full px-4 md:px-5 py-3 md:py-4 rounded-xl bg-white text-[#040E1C] placeholder-gray-500 border border-[#040E1C] focus:outline-none focus:ring-2 focus:ring-[#132137] focus:border-[#040E1C] transition-all duration-300 text-sm md:text-base"
               placeholder="example@email.com">
           </div>
 
           <div>
-            <label for="password" class="block text-sm md:text-base font-medium text-[#040E1C] mb-2">
-              Contraseña
-            </label>
+            <label for="password" class="block text-sm md:text-base font-medium text-[#040E1C] mb-2">Contraseña</label>
             <input id="password" name="password" type="password" formControlName="password"
               class="w-full px-4 md:px-5 py-3 md:py-4 rounded-xl bg-white text-[#040E1C] placeholder-gray-500 border border-[#040E1C] focus:outline-none focus:ring-2 focus:ring-[#132137] focus:border-[#040E1C] transition-all duration-300 text-sm md:text-base"
               placeholder="••••••••">
@@ -49,9 +34,7 @@
             <div class="flex items-center">
               <input id="remember" name="remember" type="checkbox"
                 class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-[#040E1C] rounded bg-white">
-              <label for="remember" class="ml-2 text-gray-600">
-                Recordarme
-              </label>
+              <label for="remember" class="ml-2 text-gray-600">Recordarme</label>
             </div>
             <a href="#" class="text-[#132137] hover:text-[#040E1C] transition-colors duration-200 hover:underline">
               ¿Olvidaste tu contraseña?
@@ -63,7 +46,6 @@
             (isLoading
               ? 'bg-gray-400 border-gray-400 text-gray-200 cursor-not-allowed'
               : 'bg-[#132137] border border-[#040E1C] text-white hover:bg-[#040E1C] hover:border-[#132137] transform hover:scale-[1.02] active:scale-95')">
-
             <span *ngIf="!isLoading">Iniciar sesión</span>
             <span *ngIf="isLoading">Cargando...</span>
           </button>
