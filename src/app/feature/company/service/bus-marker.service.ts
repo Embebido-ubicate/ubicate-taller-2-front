@@ -1,27 +1,28 @@
 import { Injectable } from '@angular/core';
+import { Bus } from '../models/buses.model';
 
-export interface Bus {
+// Interface temporal para buses con posición
+export interface BusWithPosition extends Bus {
   position: { lat: number; lng: number };
-  title: string;
-  status: 'activo' | 'parado' | 'offline';
-  route: string;
-  id?: string;
 }
 
 @Injectable({ providedIn: 'root' })
 export class BusMarkerService {
   private advancedMarkers: google.maps.marker.AdvancedMarkerElement[] = [];
 
-  getBusColor(status: string): string {
+  getBusStatusColor(estado: string): string {
     const colors = {
       activo: '#10B981',
+      en_ruta: '#3B82F6',
       parado: '#F59E0B',
-      offline: '#EF4444',
+      mantenimiento: '#F97316',
+      inactivo: '#EF4444',
+      offline: '#6B7280',
     };
-    return colors[status as keyof typeof colors] || '#6B7280';
+    return colors[estado.toLowerCase() as keyof typeof colors] || '#6B7280';
   }
 
-  async createBusMarkers(buses: Bus[], map: google.maps.Map) {
+  async createBusMarkers(buses: BusWithPosition[], map: google.maps.Map) {
     try {
       const { AdvancedMarkerElement, PinElement } =
         (await google.maps.importLibrary(
@@ -31,17 +32,20 @@ export class BusMarkerService {
       this.clearMarkers();
 
       for (const bus of buses) {
+        // Solo crear marcador si el bus está activo y tiene posición
+        if (!bus.activo || !bus.position) continue;
+
         const pinElement = new PinElement({
-          background: this.getBusColor(bus.status),
+          background: bus.color || this.getBusStatusColor(bus.estado),
           borderColor: '#ffffff',
           glyphColor: '#ffffff',
-          scale: 1.2,
+          scale: bus.activo ? 1.2 : 0.8,
         });
 
         const marker = new AdvancedMarkerElement({
           map,
           position: bus.position,
-          title: bus.title,
+          title: `${bus.modelo} - ${bus.placa}`,
           content: pinElement.element,
         });
 

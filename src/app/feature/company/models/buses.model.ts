@@ -12,11 +12,13 @@ export interface Bus {
   placa: string;
   modelo: string;
   capacidad: number;
-  anio: string;  
+  anio: string;
   color: string;
   estado: string;
   activo: boolean;
   empresa_id: number;
   fecha_creacion: string;
   fecha_actualizacion: string;
+
+  
 }

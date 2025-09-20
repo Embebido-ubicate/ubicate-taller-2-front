@@ -8,16 +8,30 @@ import {
 } from '@angular/core';
 import { GoogleMapsModule, GoogleMap } from '@angular/google-maps';
 import { CommonModule } from '@angular/common';
+import { Subject, takeUntil } from 'rxjs';
 import {
-  CreateRouteRequest,
   RouteService,
+  CreateRouteRequest,
 } from '../../../service/route.service';
+
 import {
   RouteCreatorComponent,
   RouteFormData,
 } from '../route-creator/route-creator';
 import { MapControlsComponent } from '../map-controls/map-controls';
 import { RouteInstructionsComponent } from '../route-instructions/route-instructions';
+import { BusListComponent } from '../../bus-mapa/bus-list/bus-list';
+import { BusMarkerService } from '../../../service/bus-marker.service';
+import { LocationService } from '../../../service/location.service';
+import { RouteMapService } from '../../../service/route-map.service';
+import { Bus } from '../../../models/buses.model';
+import { Route } from '../../../models/route.model';
+import { RouteListComponent } from '../route-list/route-list';
+
+// Interface temporal para buses con posición (hasta que venga del backend)
+interface BusWithPosition extends Bus {
+  position: { lat: number; lng: number };
+}
 
 @Component({
   selector: 'app-map-container',
@@ -28,6 +42,8 @@ import { RouteInstructionsComponent } from '../route-instructions/route-instruct
     RouteCreatorComponent,
     MapControlsComponent,
     RouteInstructionsComponent,
+    BusListComponent,
+    RouteListComponent,
   ],
   templateUrl: './map-container.html',
 })
@@ -35,7 +51,11 @@ export class MapContainerComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mapContainer', { static: false }) mapContainer!: ElementRef;
   @ViewChild(GoogleMap, { static: false }) map!: GoogleMap;
 
+  private destroy$ = new Subject<void>();
   private routeService = inject(RouteService);
+  private busMarkerService = inject(BusMarkerService);
+  private locationService = inject(LocationService);
+  private routeMapService = inject(RouteMapService);
 
   // Estados del mapa
   center: google.maps.LatLngLiteral = { lat: -8.1116, lng: -79.0288 };
@@ -47,17 +67,96 @@ export class MapContainerComponent implements AfterViewInit, OnDestroy {
   isLocating = false;
   currentLocation: google.maps.LatLngLiteral | null = null;
 
-  // Estados de rutas
+  // Estados de rutas para crear
   isCreatingRoute = false;
   hasOrigin = false;
   hasDestination = false;
   isAddingWaypoints = false;
   newRoute: RouteFormData = { nombre: '', codigo: '', colorHex: '#FF0000' };
 
-  // Google Maps internos
-  private advancedMarkers: google.maps.marker.AdvancedMarkerElement[] = [];
-  private currentLocationMarker: google.maps.marker.AdvancedMarkerElement | null =
-    null;
+  // Estados de listas
+  showBusList = false;
+  showRouteList = false;
+
+  // Datos de buses con modelo real
+  buses: Bus[] = [
+    {
+      id: 1,
+      placa: 'ABC-123',
+      modelo: 'Mercedes Benz O500RS',
+      capacidad: 45,
+      anio: '2020',
+      color: '#10B981',
+      estado: 'activo',
+      activo: true,
+      empresa_id: 1,
+      fecha_creacion: '2024-01-15T10:00:00.000Z',
+      fecha_actualizacion: '2024-01-15T10:00:00.000Z',
+    },
+    {
+      id: 2,
+      placa: 'DEF-456',
+      modelo: 'Volvo B7R',
+      capacidad: 50,
+      anio: '2019',
+      color: '#F59E0B',
+      estado: 'parado',
+      activo: true,
+      empresa_id: 1,
+      fecha_creacion: '2024-01-15T10:00:00.000Z',
+      fecha_actualizacion: '2024-01-15T10:00:00.000Z',
+    },
+    {
+      id: 3,
+      placa: 'GHI-789',
+      modelo: 'Scania K360',
+      capacidad: 40,
+      anio: '2018',
+      color: '#EF4444',
+      estado: 'mantenimiento',
+      activo: false,
+      empresa_id: 1,
+      fecha_creacion: '2024-01-15T10:00:00.000Z',
+      fecha_actualizacion: '2024-01-15T10:00:00.000Z',
+    },
+    {
+      id: 4,
+      placa: 'JKL-012',
+      modelo: 'Mercedes Benz Citaro',
+      capacidad: 55,
+      anio: '2021',
+      color: '#3B82F6',
+      estado: 'en_ruta',
+      activo: true,
+      empresa_id: 1,
+      fecha_creacion: '2024-01-15T10:00:00.000Z',
+      fecha_actualizacion: '2024-01-15T10:00:00.000Z',
+    },
+    {
+      id: 5,
+      placa: 'MNO-345',
+      modelo: 'Iveco Urbanway',
+      capacidad: 48,
+      anio: '2017',
+      color: '#F97316',
+      estado: 'inactivo',
+      activo: false,
+      empresa_id: 1,
+      fecha_creacion: '2024-01-15T10:00:00.000Z',
+      fecha_actualizacion: '2024-01-15T10:00:00.000Z',
+    },
+  ];
+
+  // Posiciones temporales para los buses (esto vendría de tu API de GPS)
+  private busPositions = new Map([
+    [1, { lat: -8.1116, lng: -79.0288 }],
+    [2, { lat: -8.108, lng: -79.024 }],
+    [3, { lat: -8.115, lng: -79.03 }],
+    [4, { lat: -8.113, lng: -79.026 }],
+    [5, { lat: -8.117, lng: -79.032 }],
+  ]);
+
+  // Google Maps internos para rutas
   private originMarker: google.maps.marker.AdvancedMarkerElement | null = null;
   private destinationMarker: google.maps.marker.AdvancedMarkerElement | null =
     null;
@@ -87,87 +186,278 @@ export class MapContainerComponent implements AfterViewInit, OnDestroy {
     mapId: 'DEMO_MAP_ID',
   };
 
-  // Datos de buses
-  buses = [
-    {
-      position: { lat: -8.1116, lng: -79.0288 },
-      title: 'Bus #001',
-      status: 'activo',
-      route: 'Ruta A',
-    },
-    {
-      position: { lat: -8.108, lng: -79.024 },
-      title: 'Bus #002',
-      status: 'parado',
-      route: 'Ruta B',
-    },
-    {
-      position: { lat: -8.115, lng: -79.03 },
-      title: 'Bus #003',
-      status: 'offline',
-      route: 'Ruta C',
-    },
-  ];
-
   async ngAfterViewInit() {
     this.resizeMap();
     this.setupResizeObserver();
+    this.subscribeToLocationService();
+
     setTimeout(async () => {
-      await this.createAdvancedMarkers();
+      await this.createBusMarkers();
       this.setupMapClickListener();
     }, 500);
   }
 
   ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
     }
-    this.clearMarkers();
+    this.busMarkerService.clearMarkers();
+    this.locationService.clearLocationMarker();
     this.clearRouteMarkers();
+    this.routeMapService.clearAllRoutesFromMap();
   }
 
-  async getCurrentLocation() {
-    this.isLocating = true;
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          this.currentLocation = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          };
-          this.center = this.currentLocation;
-          this.zoom = 16;
-          if (this.map && this.map.googleMap) {
-            this.map.googleMap.setCenter(this.currentLocation);
-            this.map.googleMap.setZoom(16);
-            await this.createCurrentLocationMarker();
-          }
-          this.isLocating = false;
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-          this.isLocating = false;
-          alert('Error al obtener ubicación');
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-      );
-    } else {
-      alert('Geolocalización no es compatible con este navegador.');
-      this.isLocating = false;
+  // ============ SUSCRIPCIONES Y CONFIGURACIÓN ============
+  private subscribeToLocationService() {
+    this.locationService.currentLocation$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((location) => {
+        this.currentLocation = location;
+      });
+
+    this.locationService.isLocating$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((isLocating) => {
+        this.isLocating = isLocating;
+      });
+  }
+
+  private setupResizeObserver() {
+    if (this.mapContainer) {
+      this.resizeObserver = new ResizeObserver(() => {
+        this.resizeMap();
+      });
+      this.resizeObserver.observe(this.mapContainer.nativeElement);
     }
   }
 
+  private resizeMap() {
+    if (this.mapContainer && this.map) {
+      setTimeout(() => {
+        const containerWidth = this.mapContainer.nativeElement.offsetWidth;
+        const containerHeight = this.mapContainer.nativeElement.offsetHeight;
+
+        this.mapWidth = containerWidth + 'px';
+        this.mapHeight = containerHeight + 'px';
+
+        if (this.map.googleMap) {
+          google.maps.event.trigger(this.map.googleMap, 'resize');
+        }
+      }, 100);
+    }
+  }
+
+  private setupMapClickListener() {
+    if (this.map.googleMap) {
+      this.directionsRenderer.setMap(this.map.googleMap);
+
+      this.directionsRenderer.addListener('directions_changed', () => {
+        console.log('Ruta modificada por arrastre');
+      });
+
+      this.map.googleMap.addListener('click', (event: any) => {
+        console.log('Map clicked:', event.latLng?.toString());
+        console.log('isCreatingRoute:', this.isCreatingRoute);
+        console.log('showBusList:', this.showBusList);
+        console.log('showRouteList:', this.showRouteList);
+
+        // IMPORTANTE: Cerrar listas si están abiertas y no estamos creando ruta
+        if (!this.isCreatingRoute && (this.showBusList || this.showRouteList)) {
+          this.showBusList = false;
+          this.showRouteList = false;
+          return;
+        }
+
+        // Solo proceder si estamos en modo de creación de ruta
+        if (this.isCreatingRoute && event.latLng) {
+          console.log('Procesando click para ruta...');
+          this.handleRouteClick(event.latLng);
+        } else if (
+          this.isAddingWaypoints &&
+          event.latLng &&
+          this.hasDestination &&
+          this.isCreatingRoute
+        ) {
+          console.log('Agregando waypoint...');
+          this.addWaypoint(event.latLng);
+        }
+      });
+    }
+  }
+
+  // ============ MÉTODOS DE UBICACIÓN ============
+  async getCurrentLocation() {
+    try {
+      const location = await this.locationService.getCurrentLocation();
+      this.center = location;
+      this.zoom = 16;
+
+      if (this.map && this.map.googleMap) {
+        this.map.googleMap.setCenter(location);
+        this.map.googleMap.setZoom(16);
+        await this.locationService.createLocationMarker(
+          this.map.googleMap,
+          location
+        );
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
+      alert('Error al obtener ubicación');
+    }
+  }
+
+  // ============ MÉTODOS DE BUSES ============
+  async createBusMarkers() {
+    if (this.map?.googleMap) {
+      const busesWithPosition: BusWithPosition[] = this.buses
+        .map((bus) => {
+          const position = this.busPositions.get(bus.id);
+          if (position) {
+            return { ...bus, position };
+          }
+          return null;
+        })
+        .filter((bus): bus is BusWithPosition => bus !== null);
+
+      await this.busMarkerService.createBusMarkers(
+        busesWithPosition,
+        this.map.googleMap
+      );
+    }
+  }
+
+  toggleBusList() {
+    this.showBusList = !this.showBusList;
+    if (this.showBusList) {
+      this.showRouteList = false; // Cerrar lista de rutas si está abierta
+    }
+  }
+
+  onSelectBus(bus: Bus) {
+    const position = this.busPositions.get(bus.id);
+    if (position) {
+      this.center = position;
+      this.zoom = 17;
+
+      if (this.map && this.map.googleMap) {
+        this.map.googleMap.setCenter(position);
+        this.map.googleMap.setZoom(17);
+
+        // Crear un info window para mostrar información del bus
+        const infoWindow = new google.maps.InfoWindow({
+          content: `
+            <div class="p-2">
+              <h4 class="font-semibold text-sm">${bus.modelo}</h4>
+              <p class="text-xs text-gray-600">Placa: ${bus.placa}</p>
+              <p class="text-xs text-gray-600">Estado: ${bus.estado}</p>
+              <p class="text-xs text-gray-600">Capacidad: ${bus.capacidad} personas</p>
+            </div>
+          `,
+        });
+
+        // Mostrar info window en el marcador del bus
+        infoWindow.setPosition(position);
+        infoWindow.open(this.map.googleMap);
+
+        // Cerrar info window después de 5 segundos
+        setTimeout(() => {
+          infoWindow.close();
+        }, 5000);
+      }
+    } else {
+      console.warn(`No se encontró posición para el bus ${bus.id}`);
+    }
+
+    this.showBusList = false;
+  }
+
+  onCloseBusList() {
+    this.showBusList = false;
+  }
+
+  // ============ MÉTODOS DE RUTAS PARA LISTAR ============
+  toggleRouteList() {
+    this.showRouteList = !this.showRouteList;
+    if (this.showRouteList) {
+      this.showBusList = false; // Cerrar lista de buses si está abierta
+    }
+  }
+
+  onSelectRoute(route: Route) {
+    try {
+      const [lat, lng] = route.origen.split(',').map(Number);
+      this.center = { lat, lng };
+      this.zoom = 14;
+
+      if (this.map && this.map.googleMap) {
+        this.map.googleMap.setCenter({ lat, lng });
+        this.map.googleMap.setZoom(14);
+
+        // Mostrar la ruta en el mapa
+        this.routeMapService.showRouteOnMap(route, this.map.googleMap);
+
+        // Crear un info window para mostrar información de la ruta
+        const infoWindow = new google.maps.InfoWindow({
+          content: `
+            <div class="p-2">
+              <h4 class="font-semibold text-sm">${route.nombre}</h4>
+              <p class="text-xs text-gray-600">Código: ${route.codigo}</p>
+              <p class="text-xs text-gray-600">Estado: ${route.estado}</p>
+              <p class="text-xs text-gray-600">Descripción: ${
+                route.descripcion || 'Sin descripción'
+              }</p>
+            </div>
+          `,
+        });
+
+        infoWindow.setPosition({ lat, lng });
+        infoWindow.open(this.map.googleMap);
+
+        // Cerrar info window después de 5 segundos
+        setTimeout(() => {
+          infoWindow.close();
+        }, 5000);
+      }
+
+      this.showRouteList = false;
+    } catch (error) {
+      console.error('Error selecting route:', error);
+      alert('Error al seleccionar la ruta');
+    }
+  }
+
+  onCloseRouteList() {
+    this.showRouteList = false;
+  }
   startCreatingRoute() {
+    console.log('Iniciando creación de ruta...');
+
+    // CERRAR todas las listas primero
+    this.showBusList = false;
+    this.showRouteList = false;
+
+    // Configurar modo de creación
     this.isCreatingRoute = true;
     this.hasOrigin = false;
     this.hasDestination = false;
     this.isAddingWaypoints = false;
+
+    // Limpiar marcadores anteriores
     this.clearRouteMarkers();
+
+    // Configurar nueva ruta
     this.newRoute = {
       nombre: '',
       codigo: '',
       colorHex: this.generateRandomColor(),
     };
+
+    console.log(
+      'Modo creación activado. Haz click en el mapa para colocar el origen.'
+    );
   }
 
   cancelRouteCreation() {
@@ -180,7 +470,7 @@ export class MapContainerComponent implements AfterViewInit, OnDestroy {
 
   saveRoute() {
     if (!this.newRoute.nombre || !this.newRoute.codigo) {
-      alert('Completa nombre y código');
+      alert('Completa nombre y código de la ruta');
       return;
     }
 
@@ -198,19 +488,17 @@ export class MapContainerComponent implements AfterViewInit, OnDestroy {
     const route = directions.routes[0];
     const polyline = route.overview_polyline;
 
-    // CORRECCIÓN: Obtener coordenadas correctamente
+    // Obtener coordenadas correctamente
     const originPos = this.originMarker.position as google.maps.LatLng;
     const destinationPos = this.destinationMarker
       .position as google.maps.LatLng;
 
-    // Verificar si tiene métodos o propiedades
     let originLat, originLng, destLat, destLng;
 
     if (typeof originPos.lat === 'function') {
       originLat = originPos.lat();
       originLng = originPos.lng();
     } else {
-      // Si es un objeto con propiedades lat/lng
       originLat = (originPos as any).lat;
       originLng = (originPos as any).lng;
     }
@@ -219,7 +507,6 @@ export class MapContainerComponent implements AfterViewInit, OnDestroy {
       destLat = destinationPos.lat();
       destLng = destinationPos.lng();
     } else {
-      // Si es un objeto con propiedades lat/lng
       destLat = (destinationPos as any).lat;
       destLng = (destinationPos as any).lng;
     }
@@ -231,25 +518,22 @@ export class MapContainerComponent implements AfterViewInit, OnDestroy {
       polyline: polyline,
       origen: `${originLat},${originLng}`,
       destino: `${destLat},${destLng}`,
-      empresaId: 1, // CORREGIDO: mantener como number simple
+      empresaId: 1,
       descripcion: `Ruta desde ${this.originMarker.title} hasta ${this.destinationMarker.title}`,
     };
 
     console.log('Enviando datos de ruta:', routeData);
-
-    // DEBUG: Agregar log adicional para ver exactamente qué se está enviando
-    console.log(
-      'EmpresaId enviado:',
-      routeData.empresaId,
-      'tipo:',
-      typeof routeData.empresaId
-    );
 
     this.routeService.createRoute(routeData).subscribe({
       next: (response) => {
         console.log('Ruta creada exitosamente:', response);
         alert('Ruta guardada exitosamente');
         this.cancelRouteCreation();
+
+        // Recargar la lista de rutas si está visible
+        if (this.showRouteList) {
+          this.routeMapService.loadRoutes();
+        }
       },
       error: (error) => {
         console.error('Error creando ruta:', error);
@@ -336,155 +620,6 @@ export class MapContainerComponent implements AfterViewInit, OnDestroy {
       'Modo waypoints:',
       this.isAddingWaypoints ? 'ACTIVADO' : 'DESACTIVADO'
     );
-  }
-
-  private generateRandomColor(): string {
-    const colors = [
-      '#FF0000',
-      '#00FF00',
-      '#0000FF',
-      '#FFFF00',
-      '#FF00FF',
-      '#00FFFF',
-      '#800080',
-      '#FFA500',
-    ];
-    return colors[Math.floor(Math.random() * colors.length)];
-  }
-
-  private getBusColor(status: string): string {
-    const colors = {
-      activo: '#10B981',
-      parado: '#F59E0B',
-      offline: '#EF4444',
-    };
-    return colors[status as keyof typeof colors] || '#6B7280';
-  }
-
-  private async createAdvancedMarkers() {
-    try {
-      const { AdvancedMarkerElement, PinElement } =
-        (await google.maps.importLibrary(
-          'marker'
-        )) as google.maps.MarkerLibrary;
-
-      if (!this.map.googleMap) return;
-
-      this.clearMarkers();
-
-      for (const bus of this.buses) {
-        const pinElement = new PinElement({
-          background: this.getBusColor(bus.status),
-          borderColor: '#ffffff',
-          glyphColor: '#ffffff',
-          scale: 1.2,
-        });
-
-        const marker = new AdvancedMarkerElement({
-          map: this.map.googleMap,
-          position: bus.position,
-          title: bus.title,
-          content: pinElement.element,
-        });
-
-        this.advancedMarkers.push(marker);
-      }
-    } catch (error) {
-      console.error('Error creating advanced markers:', error);
-    }
-  }
-
-  private clearMarkers() {
-    this.advancedMarkers.forEach((marker) => {
-      if (marker.map) {
-        marker.map = null;
-      }
-    });
-    this.advancedMarkers = [];
-
-    if (this.currentLocationMarker) {
-      this.currentLocationMarker.map = null;
-      this.currentLocationMarker = null;
-    }
-  }
-
-  private setupResizeObserver() {
-    if (this.mapContainer) {
-      this.resizeObserver = new ResizeObserver(() => {
-        this.resizeMap();
-      });
-      this.resizeObserver.observe(this.mapContainer.nativeElement);
-    }
-  }
-
-  private resizeMap() {
-    if (this.mapContainer && this.map) {
-      setTimeout(() => {
-        const containerWidth = this.mapContainer.nativeElement.offsetWidth;
-        const containerHeight = this.mapContainer.nativeElement.offsetHeight;
-
-        this.mapWidth = containerWidth + 'px';
-        this.mapHeight = containerHeight + 'px';
-
-        if (this.map.googleMap) {
-          google.maps.event.trigger(this.map.googleMap, 'resize');
-        }
-      }, 100);
-    }
-  }
-
-  private async createCurrentLocationMarker() {
-    try {
-      const { AdvancedMarkerElement, PinElement } =
-        (await google.maps.importLibrary(
-          'marker'
-        )) as google.maps.MarkerLibrary;
-
-      if (!this.map.googleMap || !this.currentLocation) return;
-
-      if (this.currentLocationMarker) {
-        this.currentLocationMarker.map = null;
-      }
-
-      const pinElement = new PinElement({
-        background: '#3B82F6',
-        borderColor: '#ffffff',
-        glyphColor: '#ffffff',
-        scale: 1.5,
-        glyph: '📍',
-      });
-
-      this.currentLocationMarker = new AdvancedMarkerElement({
-        map: this.map.googleMap,
-        position: this.currentLocation,
-        title: 'Tu ubicación actual',
-        content: pinElement.element,
-      });
-    } catch (error) {
-      console.error('Error creating current location marker:', error);
-    }
-  }
-
-  private setupMapClickListener() {
-    if (this.map.googleMap) {
-      this.directionsRenderer.setMap(this.map.googleMap);
-
-      this.directionsRenderer.addListener('directions_changed', () => {
-        console.log('Ruta modificada por arrastre');
-      });
-
-      this.map.googleMap.addListener('click', (event: any) => {
-        if (this.isCreatingRoute && event.latLng) {
-          this.handleRouteClick(event.latLng);
-        } else if (
-          this.isAddingWaypoints &&
-          event.latLng &&
-          this.hasDestination
-        ) {
-          this.addWaypoint(event.latLng);
-        }
-      });
-    }
   }
 
   private async handleRouteClick(latLng: google.maps.LatLng) {
@@ -640,5 +775,54 @@ export class MapContainerComponent implements AfterViewInit, OnDestroy {
     } catch (error) {
       console.error('Error agregando waypoint:', error);
     }
+  }
+
+  // ============ UTILIDADES ============
+  private generateRandomColor(): string {
+    const colors = [
+      '#FF0000',
+      '#00FF00',
+      '#0000FF',
+      '#FFFF00',
+      '#FF00FF',
+      '#00FFFF',
+      '#800080',
+      '#FFA500',
+      '#E91E63',
+      '#9C27B0',
+      '#673AB7',
+      '#3F51B5',
+      '#2196F3',
+      '#03A9F4',
+      '#00BCD4',
+      '#009688',
+    ];
+    return colors[Math.floor(Math.random() * colors.length)];
+  }
+
+  // ============ MÉTODOS ADICIONALES PARA UX ============
+  centerOnTrujillo() {
+    this.center = { lat: -8.1116, lng: -79.0288 };
+    this.zoom = 13;
+
+    if (this.map && this.map.googleMap) {
+      this.map.googleMap.setCenter(this.center);
+      this.map.googleMap.setZoom(this.zoom);
+    }
+  }
+
+  refreshBusPositions() {
+    // Aquí podrías hacer una llamada a tu API para actualizar posiciones
+    console.log('Actualizando posiciones de buses...');
+    this.createBusMarkers();
+  }
+
+  getTotalActiveBuses(): number {
+    return this.buses.filter((bus) => bus.activo && bus.estado === 'activo')
+      .length;
+  }
+
+  getTotalBusesInRoute(): number {
+    return this.buses.filter((bus) => bus.estado === 'en_ruta').length;
   }
 }
