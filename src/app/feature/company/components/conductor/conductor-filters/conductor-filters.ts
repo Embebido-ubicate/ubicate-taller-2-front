@@ -2,6 +2,12 @@ import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
+// Tipos alineados al backend
+type Estado = 'ACTIVO' | 'INACTIVO' | 'VACACIONES' | 'SUSPENDIDO';
+type EstadoTodos = Estado | 'Todos';
+type Turno = 'MANANA' | 'TARDE' | 'NOCHE';
+type TurnoTodos = Turno | 'Todos';
+
 @Component({
   selector: 'app-conductor-filters',
   standalone: true,
@@ -9,40 +15,42 @@ import { FormsModule } from '@angular/forms';
   templateUrl: './conductor-filters.html',
 })
 export class ConductorFilters {
-  // Valores de los filtros
+  // Valores de los filtros (tipados)
   searchTerm = '';
-  selectedEstado = 'Todos';
+  selectedEstado: EstadoTodos = 'Todos';
   selectedCategoria = 'Todas';
-  selectedTurno = 'Todos';
+  selectedTurno: TurnoTodos = 'Todos';
 
-  // Opciones para los selects
-  estados = ['Todos', 'ACTIVO', 'INACTIVO', 'VACACIONES', 'SUSPENDIDO'];
+  // Opciones selects (coinciden con enums del backend)
+  estados: EstadoTodos[] = [
+    'Todos',
+    'ACTIVO',
+    'INACTIVO',
+    'VACACIONES',
+    'SUSPENDIDO',
+  ];
   categorias = ['Todas', 'A1', 'A2a', 'A2b', 'A3a', 'A3b', 'A3c'];
-  turnos = ['Todos', 'MAÑANA', 'TARDE', 'NOCHE'];
+  turnos: TurnoTodos[] = ['Todos', 'MANANA', 'TARDE', 'NOCHE']; 
 
-  // Eventos para comunicarse con el componente padre
+  // Eventos tipados
   @Output() onSearch = new EventEmitter<string>();
-  @Output() onEstadoChange = new EventEmitter<string>();
+  @Output() onEstadoChange = new EventEmitter<EstadoTodos>();
   @Output() onCategoriaChange = new EventEmitter<string>();
-  @Output() onTurnoChange = new EventEmitter<string>();
+  @Output() onTurnoChange = new EventEmitter<TurnoTodos>();
   @Output() onClearFilters = new EventEmitter<void>();
 
   onSearchInput() {
     this.onSearch.emit(this.searchTerm);
   }
-
   onEstadoSelect() {
     this.onEstadoChange.emit(this.selectedEstado);
   }
-
   onCategoriaSelect() {
     this.onCategoriaChange.emit(this.selectedCategoria);
   }
-
   onTurnoSelect() {
     this.onTurnoChange.emit(this.selectedTurno);
   }
-
   clearAllFilters() {
     this.searchTerm = '';
     this.selectedEstado = 'Todos';

@@ -1,3 +1,4 @@
+// src/app/feature/company/components/dashboard/route-list/route-list.ts
 import {
   Component,
   Input,
@@ -6,27 +7,30 @@ import {
   OnInit,
   OnDestroy,
   inject,
+  ChangeDetectorRef,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subject, takeUntil } from 'rxjs';
-import { Route } from '../../../models/route.model';
 import { RouteMapService } from '../../../service/route/route-map.service';
+import { RouteResponse } from '../../../models/route.model';
+import { IconsModule } from '../../../icons.module';
 
 @Component({
   selector: 'app-route-list',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, IconsModule],
   templateUrl: './route-list.html',
 })
 export class RouteListComponent implements OnInit, OnDestroy {
-  @Input() isVisible: boolean = false;
-  @Output() selectRoute = new EventEmitter<Route>();
+  @Input() isVisible = false;
+  @Output() selectRouteId = new EventEmitter<number>();
   @Output() close = new EventEmitter<void>();
 
   private destroy$ = new Subject<void>();
   private routeMapService = inject(RouteMapService);
+  private cdr = inject(ChangeDetectorRef);
 
-  routes: Route[] = [];
+  routes: RouteResponse[] = [];
   loading = false;
   error: string | null = null;
 
@@ -35,20 +39,20 @@ export class RouteListComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe((routes) => {
         this.routes = routes;
+        this.cdr.detectChanges();
       });
-
     this.routeMapService.loading$
       .pipe(takeUntil(this.destroy$))
       .subscribe((loading) => {
         this.loading = loading;
+        this.cdr.detectChanges();
       });
-
     this.routeMapService.error$
       .pipe(takeUntil(this.destroy$))
       .subscribe((error) => {
         this.error = error;
+        this.cdr.detectChanges();
       });
-
     this.loadRoutes();
   }
 
@@ -58,43 +62,28 @@ export class RouteListComponent implements OnInit, OnDestroy {
   }
 
   loadRoutes() {
-    this.routeMapService.loadRoutes(0, 50).subscribe();
-  }
-
-  onSelectRoute(route: Route) {
-    this.selectRoute.emit(route);
-  }
-
-  onToggleRoute(event: Event, route: Route) {
-    event.stopPropagation();
-
     this.routeMapService
-      .toggleRouteActive(route.id)
-      .subscribe((updatedRoute) => {
-        if (updatedRoute) {
-          console.log(`Ruta ${route.codigo} actualizada:`, updatedRoute);
-        }
-      });
+      .loadRoutes('ACTIVA')
+      .subscribe(() => this.cdr.detectChanges());
   }
 
-  onEditRoute(event: Event, route: Route) {
-    event.stopPropagation();
-    console.log('Editar ruta:', route);
+  onSelectRoute(route: RouteResponse) {
+    this.selectRouteId.emit(route.id);
   }
 
-  onDeleteRoute(event: Event, route: Route) {
+  onToggleRoute(event: Event, route: RouteResponse) {
     event.stopPropagation();
+    this.routeMapService.toggleRouteActive(route.id).subscribe();
+  }
 
+  onDeleteRoute(event: Event, route: RouteResponse) {
+    event.stopPropagation();
     if (
       confirm(
         `¿Estás seguro de eliminar la ruta ${route.codigo} - ${route.nombre}?`
       )
     ) {
-      this.routeMapService.deleteRoute(route.id).subscribe((success) => {
-        if (success) {
-          console.log(`Ruta ${route.codigo} eliminada exitosamente`);
-        }
-      });
+      this.routeMapService.deleteRoute(route.id).subscribe();
     }
   }
 
@@ -102,72 +91,45 @@ export class RouteListComponent implements OnInit, OnDestroy {
     this.close.emit();
   }
 
-  trackByRoute(index: number, route: Route): number {
+  trackByRoute(_: number, route: RouteResponse): number {
     return route.id;
   }
 
-  // MÉTODO CORREGIDO - Sin redeclaración de variables
-  getOriginDestination(route: Route): string {
-    // Primero verificar si hay descripción
-    if (route.descripcion && route.descripcion.trim() !== '') {
-      return route.descripcion;
-    }
-
-    // Si no hay descripción, mostrar coordenadas
+  getOriginDestination(route: RouteResponse): string {
+    if (route.descripcion?.trim()) return route.descripcion;
     try {
-      // Parsear origen
-      const origenParts = route.origen.split(',');
-      const destinoParts = route.destino.split(',');
-
-      if (origenParts.length >= 2 && destinoParts.length >= 2) {
-        const originLat = parseFloat(origenParts[0]).toFixed(3);
-        const originLng = parseFloat(origenParts[1]).toFixed(3);
-        const destinationLat = parseFloat(destinoParts[0]).toFixed(3);
-        const destinationLng = parseFloat(destinoParts[1]).toFixed(3);
-
-        return `${originLat}, ${originLng} → ${destinationLat}, ${destinationLng}`;
-      }
-
-      return 'Coordenadas inválidas';
-    } catch (error) {
-      console.error('Error parsing coordinates:', error);
+      const [olat, olng] = route.origen.split(',').map(parseFloat);
+      const [dlat, dlng] = route.destino.split(',').map(parseFloat);
+      if ([olat, olng, dlat, dlng].some((v) => Number.isNaN(v)))
+        return 'Coordenadas inválidas';
+      return `${olat.toFixed(3)}, ${olng.toFixed(3)} → ${dlat.toFixed(
+        3
+      )}, ${dlng.toFixed(3)}`;
+    } catch {
       return 'Sin descripción';
     }
   }
 
-  getRouteInfo(route: Route): string {
-    const info: string[] = [];
-
-    if (route.buses && route.buses.length > 0) {
-      const busCount = route.buses.length;
-      info.push(`${busCount} bus${busCount !== 1 ? 'es' : ''}`);
-    }
-
-    if (route.estado) {
-      info.push(`Estado: ${route.estado}`);
-    }
-
-    return info.length > 0 ? info.join(' • ') : 'Sin información';
+  getRouteInfo(route: RouteResponse): string {
+    const a: string[] = [];
+    if (route.bus_ids?.length)
+      a.push(
+        `${route.bus_ids.length} bus${route.bus_ids.length !== 1 ? 'es' : ''}`
+      );
+    if (route.estado) a.push(`Estado: ${route.estado}`);
+    return a.length ? a.join(' • ') : 'Sin información';
   }
 
   formatDate(dateString: string): string {
     try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('es-ES', {
+      const d = new Date(dateString);
+      return d.toLocaleDateString('es-ES', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
       });
-    } catch (error) {
+    } catch {
       return 'Fecha inválida';
     }
-  }
-
-  getActiveRoutes(): number {
-    return this.routes.filter((r) => r.activo).length;
-  }
-
-  getInactiveRoutes(): number {
-    return this.routes.filter((r) => !r.activo).length;
   }
 }

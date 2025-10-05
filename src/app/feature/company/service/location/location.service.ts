@@ -1,84 +1,82 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Observable } from 'rxjs';
 
-@Injectable({ providedIn: 'root' })
+@Injectable({
+  providedIn: 'root',
+})
 export class LocationService {
   private currentLocationSubject =
     new BehaviorSubject<google.maps.LatLngLiteral | null>(null);
   private isLocatingSubject = new BehaviorSubject<boolean>(false);
+  private locationMarker: google.maps.Marker | null = null;
 
   currentLocation$ = this.currentLocationSubject.asObservable();
   isLocating$ = this.isLocatingSubject.asObservable();
 
-  private currentLocationMarker: google.maps.marker.AdvancedMarkerElement | null =
-    null;
+  async getCurrentLocation(): Promise<google.maps.LatLngLiteral> {
+    if (this.isLocatingSubject.value) {
+      throw new Error('Location request in progress');
+    }
 
-  getCurrentLocation(): Promise<google.maps.LatLngLiteral> {
+    this.isLocatingSubject.next(true);
+
+    try {
+      const position = await this.getGeolocation();
+      const location = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      };
+
+      this.currentLocationSubject.next(location);
+      return location;
+    } catch (error) {
+      console.error('Geolocation error:', error);
+      throw error;
+    } finally {
+      this.isLocatingSubject.next(false);
+    }
+  }
+
+  private getGeolocation(): Promise<GeolocationPosition> {
     return new Promise((resolve, reject) => {
-      this.isLocatingSubject.next(true);
-
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const location = {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-            };
-            this.currentLocationSubject.next(location);
-            this.isLocatingSubject.next(false);
-            resolve(location);
-          },
-          (error) => {
-            console.error('Error getting location:', error);
-            this.isLocatingSubject.next(false);
-            reject(error);
-          },
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-        );
-      } else {
-        this.isLocatingSubject.next(false);
-        reject(new Error('Geolocalización no compatible'));
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation not supported'));
+        return;
       }
+
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000,
+      });
     });
   }
 
   async createLocationMarker(
     map: google.maps.Map,
     location: google.maps.LatLngLiteral
-  ) {
-    try {
-      const { AdvancedMarkerElement, PinElement } =
-        (await google.maps.importLibrary(
-          'marker'
-        )) as google.maps.MarkerLibrary;
+  ): Promise<void> {
+    this.clearLocationMarker();
 
-      if (this.currentLocationMarker) {
-        this.currentLocationMarker.map = null;
-      }
-
-      const pinElement = new PinElement({
-        background: '#3B82F6',
-        borderColor: '#ffffff',
-        glyphColor: '#ffffff',
-        scale: 1.5,
-        glyph: '📍',
-      });
-
-      this.currentLocationMarker = new AdvancedMarkerElement({
-        map,
-        position: location,
-        title: 'Tu ubicación actual',
-        content: pinElement.element,
-      });
-    } catch (error) {
-      console.error('Error creating location marker:', error);
-    }
+    this.locationMarker = new google.maps.Marker({
+      position: location,
+      map: map,
+      title: 'Tu ubicación',
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 10,
+        fillColor: '#4285F4',
+        fillOpacity: 1,
+        strokeColor: '#ffffff',
+        strokeWeight: 2,
+      },
+    });
   }
 
-  clearLocationMarker() {
-    if (this.currentLocationMarker) {
-      this.currentLocationMarker.map = null;
-      this.currentLocationMarker = null;
+  clearLocationMarker(): void {
+    if (this.locationMarker) {
+      this.locationMarker.setMap(null);
+      this.locationMarker = null;
     }
   }
 }

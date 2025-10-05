@@ -1,16 +1,43 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ConductorDeleteModal } from '../conductor-delete-modal/conductor-delete-modal';
 import { ConductorEditModal } from '../conductor-edit-modal/conductor-edit-modal';
 import { ConductorFilters } from '../conductor-filters/conductor-filters';
 import { ConductorService } from '../../../service/chofer/chofer.service';
 import { BusService } from '../../../service/bus/bus.service';
 
+type Turno = 'MANANA' | 'TARDE' | 'NOCHE';
+type Estado = 'ACTIVO' | 'INACTIVO' | 'VACACIONES' | 'SUSPENDIDO';
+
+interface ConductorVM {
+  id: number;
+  nombreCompleto: string;
+  dni: string;
+  telefono: string | null;
+  numeroLicencia: string;
+  categoriaLicencia: string;
+  turno: Turno;
+  estado: Estado;
+  busAsignadoId: number | null;
+  placaBusAsignado: string | null;
+  licenciaVencida: boolean;
+  licenciaPorVencer: boolean;
+}
+
+interface BusVM {
+  id: number;
+  placa: string;
+  modelo?: string | null;
+  conductorAsignadoId?: number | null;
+}
+
 @Component({
   selector: 'app-conductor-table',
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     ConductorDeleteModal,
     ConductorEditModal,
     ConductorFilters,
@@ -21,117 +48,120 @@ export class ConductorTable implements OnInit {
   private conductorService = inject(ConductorService);
   private busService = inject(BusService);
 
-  conductores: any[] = [];
-  buses: any[] = [];
-  busesDisponibles: any[] = [];
+  conductores: ConductorVM[] = [];
+  busesDisponibles: BusVM[] = [];
+  selectedBusByConductor: Record<number, number | null> = {};
   loading = false;
   currentPage = 0;
   pageSize = 20;
-  loadingBusAssignment: { [key: number]: boolean } = {};
-
-  // Filtros
+  loadingBusAssignment: Record<number, boolean> = {};
   currentSearchTerm = '';
-  currentEstado = 'Todos';
+  currentEstado: 'Todos' | Estado = 'Todos';
   currentCategoria = 'Todas';
-  currentTurno = 'Todos';
-
-  // Modales
+  currentTurno: 'Todos' | Turno = 'Todos';
   showDeleteModal = false;
   showEditModal = false;
-  selectedConductor: any = null;
+  selectedConductor: ConductorVM | null = null;
 
   ngOnInit() {
     this.loadConductores();
     this.loadBusesDisponibles();
   }
 
+  private normTurno(v: any): Turno {
+    const s = String(v ?? '').toUpperCase();
+    if (s === 'MAÑANA' || s === 'MANANA') return 'MANANA';
+    if (s === 'TARDE') return 'TARDE';
+    if (s === 'NOCHE') return 'NOCHE';
+    return 'MANANA';
+  }
+
+  private toConductorVM = (c: any): ConductorVM => ({
+    id: c.id,
+    nombreCompleto: c.nombreCompleto ?? c.nombre_completo ?? '',
+    dni: c.dni,
+    telefono: c.telefono ?? null,
+    numeroLicencia: c.numeroLicencia ?? c.numero_licencia,
+    categoriaLicencia: c.categoriaLicencia ?? c.categoria_licencia,
+    turno: this.normTurno(c.turno),
+    estado: c.estado as Estado,
+    busAsignadoId: c.busAsignadoId ?? c.bus_asignado_id ?? null,
+    placaBusAsignado: (() => {
+      const p = c.placaBusAsignado ?? c.placa_bus_asignado ?? null;
+      if (!p) return null;
+      const s = String(p);
+      return s.toLowerCase() === 'sin asignar' ? null : s;
+    })(),
+    licenciaVencida: c.licenciaVencida ?? c.licencia_vencida ?? false,
+    licenciaPorVencer: c.licenciaPorVencer ?? c.licencia_por_vencer ?? false,
+  });
+
+  private toBusVM = (b: any): BusVM => ({
+    id: b.id,
+    placa: b.placa,
+    modelo: b.modelo ?? null,
+    conductorAsignadoId:
+      b.conductorAsignadoId ?? b.conductor_asignado_id ?? null,
+  });
+
+  private reconcileSelectedBus() {
+    for (const c of this.conductores) {
+      let selectedId: number | null = c.busAsignadoId ?? null;
+      if (selectedId == null && c.placaBusAsignado) {
+        const match =
+          this.busesDisponibles.find((b) => b.placa === c.placaBusAsignado) ??
+          null;
+        if (match) {
+          selectedId = match.id;
+          c.busAsignadoId = match.id;
+        }
+      }
+      this.selectedBusByConductor[c.id] = selectedId;
+    }
+  }
+
   loadBusesDisponibles() {
     this.busService.getBuses(0, 100).subscribe({
       next: (response) => {
-        this.busesDisponibles = response.content || response;
-        this.buses = this.busesDisponibles; // Para compatibilidad con modales
+        const arr = response?.content ?? response ?? [];
+        this.busesDisponibles = (arr as any[]).map(this.toBusVM);
+        this.reconcileSelectedBus();
       },
-      error: (error) => {
-        console.error('Error al cargar buses:', error);
-      },
+      error: () => {},
     });
-  }
-
-  loadBuses() {
-    this.loadBusesDisponibles();
   }
 
   loadConductores() {
     this.loading = true;
+    const handlePage = (res: any) => {
+      const content = res?.content ?? res ?? [];
+      this.conductores = this.applyLocalFilters(
+        content.map(this.toConductorVM)
+      );
+      this.reconcileSelectedBus();
+      this.loading = false;
+    };
 
-    if (this.currentSearchTerm.trim()) {
-      this.conductorService
-        .searchConductores(
-          this.currentSearchTerm,
-          this.currentPage,
-          this.pageSize
-        )
-        .subscribe({
-          next: (response) => {
-            this.conductores = this.applyLocalFilters(response.content);
-            this.loading = false;
-          },
-          error: (error) => {
-            console.error('Error al buscar conductores:', error);
-            this.loading = false;
-          },
-        });
-    } else if (this.currentEstado !== 'Todos') {
-      this.conductorService
-        .getConductoresByEstado(this.currentEstado)
-        .subscribe({
-          next: (conductores) => {
-            this.conductores = this.applyLocalFilters(conductores);
-            this.loading = false;
-          },
-          error: (error) => {
-            console.error('Error al filtrar por estado:', error);
-            this.loading = false;
-          },
-        });
-    } else if (this.currentTurno !== 'Todos') {
-      this.conductorService.getConductoresByTurno(this.currentTurno).subscribe({
-        next: (conductores) => {
-          this.conductores = this.applyLocalFilters(conductores);
-          this.loading = false;
-        },
-        error: (error) => {
-          console.error('Error al filtrar por turno:', error);
+    this.conductorService
+      .getConductores(this.currentPage, this.pageSize)
+      .subscribe({
+        next: handlePage,
+        error: () => {
           this.loading = false;
         },
       });
-    } else {
-      this.conductorService
-        .getConductores(this.currentPage, this.pageSize)
-        .subscribe({
-          next: (response) => {
-            this.conductores = this.applyLocalFilters(response.content);
-            this.loading = false;
-          },
-          error: (error) => {
-            console.error('Error al cargar conductores:', error);
-            this.loading = false;
-          },
-        });
-    }
   }
 
-  applyLocalFilters(conductores: any[]): any[] {
+  applyLocalFilters(conductores: ConductorVM[]): ConductorVM[] {
     let filtered = [...conductores];
     if (this.currentCategoria !== 'Todas') {
       filtered = filtered.filter(
-        (c) => c.categoria_licencia === this.currentCategoria
+        (c) => c.categoriaLicencia === this.currentCategoria
       );
     }
     return filtered;
   }
 
-  // Eventos de filtros
   onSearch(searchTerm: string) {
     this.currentSearchTerm = searchTerm;
     this.currentEstado = 'Todos';
@@ -140,7 +170,7 @@ export class ConductorTable implements OnInit {
     this.loadConductores();
   }
 
-  onEstadoChange(estado: string) {
+  onEstadoChange(estado: Estado | 'Todos') {
     this.currentEstado = estado;
     this.currentSearchTerm = '';
     this.currentTurno = 'Todos';
@@ -153,7 +183,7 @@ export class ConductorTable implements OnInit {
     this.loadConductores();
   }
 
-  onTurnoChange(turno: string) {
+  onTurnoChange(turno: Turno | 'Todos') {
     this.currentTurno = turno;
     this.currentSearchTerm = '';
     this.currentEstado = 'Todos';
@@ -170,70 +200,74 @@ export class ConductorTable implements OnInit {
     this.loadConductores();
   }
 
-  // Método para asignar bus
-  onBusAssignment(conductor: any, event: any) {
-    const busId = event.target.value || null;
-
+  onBusAssignment(conductor: ConductorVM, newBusId: number | null) {
+    const prevBusId = conductor.busAsignadoId ?? null;
+    if ((prevBusId ?? null) === (newBusId ?? null)) return;
     if (this.loadingBusAssignment[conductor.id]) return;
 
     this.loadingBusAssignment[conductor.id] = true;
 
-    const operation = busId
-      ? this.conductorService.asignarBus(conductor.id, Number(busId))
+    const op$ = newBusId
+      ? this.conductorService.asignarBus(conductor.id, newBusId)
       : this.conductorService.removerBus(conductor.id);
 
-    operation.subscribe({
+    op$.subscribe({
       next: () => {
+        conductor.busAsignadoId = newBusId;
+        const nuevoBus = newBusId
+          ? this.busesDisponibles.find((b) => b.id === newBusId)
+          : undefined;
+        conductor.placaBusAsignado = nuevoBus?.placa ?? null;
+
+        if (prevBusId) {
+          const prevBus = this.busesDisponibles.find((b) => b.id === prevBusId);
+          if (prevBus && prevBus.conductorAsignadoId === conductor.id)
+            prevBus.conductorAsignadoId = null;
+        }
+        if (newBusId) {
+          const nextBus = this.busesDisponibles.find((b) => b.id === newBusId);
+          if (nextBus) nextBus.conductorAsignadoId = conductor.id;
+        }
+
+        this.selectedBusByConductor[conductor.id] = newBusId ?? null;
         this.loadingBusAssignment[conductor.id] = false;
-        this.loadConductores(); // Recargar para mostrar cambios
       },
-      error: (error) => {
-        console.error('Error al asignar/remover bus:', error);
+      error: () => {
+        this.selectedBusByConductor[conductor.id] = prevBusId;
         this.loadingBusAssignment[conductor.id] = false;
       },
     });
   }
 
-  // Métodos de acciones
-  onView(conductor: any) {
-    console.log('Ver conductor:', conductor);
-  }
-
-  onEdit(conductor: any) {
+  onView(conductor: ConductorVM) {}
+  onEdit(conductor: ConductorVM) {
     this.selectedConductor = conductor;
     this.showEditModal = true;
   }
-
-  onDelete(conductor: any) {
+  onDelete(conductor: ConductorVM) {
     this.selectedConductor = conductor;
     this.showDeleteModal = true;
   }
-
-  // Métodos de modales
   onCancelEdit() {
     this.showEditModal = false;
     this.selectedConductor = null;
   }
-
   onConfirmEdit() {
     this.showEditModal = false;
     this.selectedConductor = null;
     this.loadConductores();
   }
-
   onCancelDelete() {
     this.showDeleteModal = false;
     this.selectedConductor = null;
   }
-
   onConfirmDelete() {
     this.showDeleteModal = false;
     this.selectedConductor = null;
     this.loadConductores();
   }
 
-  // Métodos de estilo
-  getEstadoClass(estado: string): string {
+  getEstadoClass(estado: Estado): string {
     switch (estado) {
       case 'ACTIVO':
         return 'bg-green-100 text-green-800';
@@ -248,9 +282,9 @@ export class ConductorTable implements OnInit {
     }
   }
 
-  getTurnoClass(turno: string): string {
+  getTurnoClass(turno: Turno): string {
     switch (turno) {
-      case 'MAÑANA':
+      case 'MANANA':
         return 'bg-yellow-100 text-yellow-800';
       case 'TARDE':
         return 'bg-blue-100 text-blue-800';

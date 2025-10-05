@@ -6,7 +6,7 @@ import { Bus } from '../../../models/buses.model';
   selector: 'app-bus-list',
   standalone: true,
   imports: [CommonModule],
-  templateUrl: './bus-list.html'
+  templateUrl: './bus-list.html',
 })
 export class BusListComponent {
   @Input() buses: Bus[] = [];

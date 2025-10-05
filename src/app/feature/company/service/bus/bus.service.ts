@@ -1,40 +1,49 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
+import { HttpParams } from '@angular/common/http';
 import { HttpClientService } from '../../../../core/service/http-client.service';
 import { Bus, BusesStats } from '../../models/buses.model';
-import { HttpParams } from '@angular/common/http';
 
-@Injectable({
-  providedIn: 'root',
-})
+@Injectable({ providedIn: 'root' })
 export class BusService {
   private httpClient = inject(HttpClientService);
 
-  createBus(busData: any): Observable<Bus> {
-    return this.httpClient.post<Bus>('buses', busData);
+  createBus(data: any): Observable<Bus> {
+    return this.httpClient.post<Bus>('buses', data);
   }
 
   getBusStats(): Observable<BusesStats> {
     return this.httpClient.get<BusesStats>('buses/stats');
   }
 
-  getBuses(page: number = 0, size: number = 10): Observable<any> {
-    const params = new HttpParams()
+  getBuses(page = 0, size = 10, rutaId?: number): Observable<any> {
+    let params = new HttpParams()
       .set('page', page.toString())
       .set('size', size.toString());
+
+    if (rutaId !== undefined && rutaId !== null) {
+      params = params.set('rutaId', rutaId.toString());
+    }
+
     return this.httpClient.get<any>('buses', params);
   }
 
-  updateBus(busId: number, busData: any): Observable<Bus> {
-    return this.httpClient.put<Bus>(`buses/${busId}`, busData);
+  getBusLocations(): Observable<any[]> {
+    return this.httpClient.get<any[]>('buses/con-ubicacion');
   }
 
-  updateBusStatus(busId: number, estado: string): Observable<Bus> {
-    const params = new HttpParams().set('estado', estado);
-    return this.httpClient.patch<Bus>(`buses/${busId}`, null, params);
+  updateBus(id: number, data: any): Observable<Bus> {
+    return this.httpClient.put<Bus>(`buses/${id}`, data);
   }
 
-  deleteBus(busId: number): Observable<void> {
-    return this.httpClient.delete<void>(`buses/${busId}`);
+  updateBusStatus(id: number, estado: string): Observable<Bus> {
+    return this.httpClient.patch<Bus>(
+      `buses/${id}/estado?estado=${estado}`,
+      null
+    );
+  }
+
+  deleteBus(id: number): Observable<void> {
+    return this.httpClient.delete<void>(`buses/${id}`);
   }
 }

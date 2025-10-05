@@ -50,30 +50,30 @@ export class ConductorEditModal implements OnInit, OnChanges {
 
   initForm() {
     this.conductorForm = this.fb.group({
+      telefono: [''],
       turno: ['MAÑANA'],
       estado: ['ACTIVO'],
-      experienciaAnios: [0],
-      observaciones: [''],
+      busAsignadoId: [null],
     });
   }
 
   populateForm() {
     if (this.conductor) {
       this.conductorForm.patchValue({
+        telefono: this.conductor.telefono || '',
         turno: this.conductor.turno || 'MAÑANA',
         estado: this.conductor.estado || 'ACTIVO',
-        experienciaAnios: this.conductor.experienciaAnios || 0,
-        observaciones: this.conductor.observaciones || '',
+        busAsignadoId: this.conductor.busAsignadoId || null,
       });
     }
   }
 
   resetForm() {
     this.conductorForm.reset({
+      telefono: '',
       turno: 'MAÑANA',
       estado: 'ACTIVO',
-      experienciaAnios: 0,
-      observaciones: '',
+      busAsignadoId: null,
     });
   }
 

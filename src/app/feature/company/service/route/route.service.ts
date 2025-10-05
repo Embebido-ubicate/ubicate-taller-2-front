@@ -1,80 +1,45 @@
 import { Injectable, inject } from '@angular/core';
+import { HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { HttpClientService } from '../../../../core/service/http-client.service';
-import { HttpParams } from '@angular/common/http';
+import {
+  CreateRouteRequest,
+  RouteResponse,
+  UpdateRouteRequest,
+} from '../../models/route.model';
 
-export interface CreateRouteRequest {
-  nombre: string;
-  codigo: string;
-  descripcion?: string;
-  origen?: string;
-  destino?: string;
-  colorHex?: string;
-  polyline?: string;
-  empresaId: number;
-  busIds?: number[];
-}
+export type EstadoRuta = 'ACTIVA' | 'INACTIVA';
 
-export interface UpdateRouteRequest {
-  nombre?: string;
-  descripcion?: string;
-  origen?: string;
-  destino?: string;
-  colorHex?: string;
-  polyline?: string;
-  estado?: string;
-  busIds?: number[];
-}
-
-export interface RouteResponse {
-  id: number;
-  nombre: string;
-  codigo: string;
-  descripcion: string;
-  origen: string;
-  destino: string;
-  colorHex: string;
-  polyline: string;
-  estado: string;
-  activo: boolean;
-  empresaId: number;
-  fechaCreacion: string;
-  buses: any[];
-}
-
-@Injectable({
-  providedIn: 'root',
-})
+@Injectable({ providedIn: 'root' })
 export class RouteService {
-  private httpClient = inject(HttpClientService);
+  private http = inject(HttpClientService);
 
-  createRoute(routeData: CreateRouteRequest): Observable<RouteResponse> {
-    return this.httpClient.post<RouteResponse>('rutas', routeData);
+  createRoute(body: CreateRouteRequest): Observable<RouteResponse> {
+    return this.http.post<RouteResponse>('rutas', body);
   }
 
-  getRoutes(page: number = 0, size: number = 20): Observable<any> {
-    const params = new HttpParams()
-      .set('page', page.toString())
-      .set('size', size.toString());
-    return this.httpClient.get<any>('rutas', params);
+  getRoutes(estado?: EstadoRuta): Observable<RouteResponse[]> {
+    let params = new HttpParams();
+    if (estado) params = params.set('estado', estado);
+    return this.http.get<RouteResponse[]>('rutas', params);
   }
 
   getRouteById(routeId: number): Observable<RouteResponse> {
-    return this.httpClient.get<RouteResponse>(`rutas/${routeId}`);
+    return this.http.get<RouteResponse>(`rutas/${routeId}`);
   }
 
   updateRoute(
     routeId: number,
-    routeData: UpdateRouteRequest
+    body: UpdateRouteRequest
   ): Observable<RouteResponse> {
-    return this.httpClient.put<RouteResponse>(`rutas/${routeId}`, routeData);
+    return this.http.put<RouteResponse>(`rutas/${routeId}`, body);
   }
 
-  deleteRoute(routeId: number): Observable<any> {
-    return this.httpClient.delete<any>(`rutas/${routeId}`);
-  }
-
-  getRoutesByEstado(estado: string): Observable<RouteResponse[]> {
-    return this.httpClient.get<RouteResponse[]>(`rutas/estado/${estado}`);
+  deleteRoute(
+    routeId: number
+  ): Observable<{ message?: string; success?: boolean }> {
+    return this.http.delete<{ message?: string; success?: boolean }>(
+      `rutas/${routeId}`
+    );
   }
 }

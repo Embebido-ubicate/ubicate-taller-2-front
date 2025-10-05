@@ -8,7 +8,7 @@
   },
   "include": [
     "src/**/*.ts"
-  ],
+, "src/app/feature/company/components/dashboard/bus-layer"  ],
   "exclude": [
     "src/**/*.spec.ts"
   ]

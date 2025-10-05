@@ -1,78 +1,77 @@
+<!-- src/app/feature/company/components/dashboard/map-container/map-container.html -->
 <div #mapContainer
   class="relative w-full h-full bg-gray-900 rounded-xl shadow-xl overflow-hidden border border-gray-200">
-
   <div class="absolute top-0 left-0 right-0 z-30 bg-[#021133] text-white p-3">
     <div class="flex justify-between items-center">
       <div class="flex items-center gap-3">
-        <h3 class="font-semibold text-sm">🚌 Monitoreo de Flota - Trujillo</h3>
+        <h3 class="font-semibold text-sm flex items-center gap-1">
+          <lucide-icon name="bus" class="w-4 h-4"></lucide-icon>
+          Monitoreo de Flota
+        </h3>
+        <span *ngIf="selectedRouteId" class="text-xs bg-purple-600 px-2 py-1 rounded">
+          Ruta activa
+        </span>
       </div>
+      <div class="flex gap-2 items-center">
+        <button (click)="refreshData()"
+          class="px-2 py-1 bg-green-700 hover:bg-green-600 rounded text-xs transition-colors flex items-center gap-1"
+          [disabled]="!isMapReady || isLoadingBuses || isLoadingRoutes" title="Actualizar">
+          <lucide-icon name="refresh-cw" class="w-4 h-4"
+            [class.animate-spin]="isLoadingBuses || isLoadingRoutes"></lucide-icon>
+        </button>
 
-      <div class="flex gap-3 items-center">
+        <button *ngIf="selectedRouteId" (click)="clearRouteAndBuses()"
+          class="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs transition-colors flex items-center gap-1"
+          title="Limpiar mapa">
+          <lucide-icon name="x" class="w-4 h-4"></lucide-icon>
+          Limpiar
+        </button>
+
         <button (click)="centerOnTrujillo()"
-          class="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors" title="Centrar en Trujillo">
+          class="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors flex items-center gap-1"
+          [disabled]="!isMapReady" title="Centrar mapa">
+          <lucide-icon name="crosshair" class="w-4 h-4"></lucide-icon>
         </button>
 
         <button (click)="toggleRouteList()"
-          class="px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded-md text-xs transition-colors flex items-center gap-1"
-          [class.bg-purple-800]="showRouteList" [disabled]="isCreatingRoute">
-          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7">
-            </path>
-          </svg>
+          class="px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded text-xs transition-colors flex items-center gap-1"
+          [class.bg-purple-800]="showRouteList" [disabled]="isCreatingRoute || !isMapReady" title="Rutas">
+          <lucide-icon name="route" class="w-4 h-4"></lucide-icon>
           Rutas
         </button>
-
       </div>
     </div>
   </div>
 
   <app-bus-list [isVisible]="showBusList && !isCreatingRoute" (selectBus)="onSelectBus($event)"
-    (close)="onCloseBusList()" class="z-25">
-  </app-bus-list>
+    (close)="onCloseBusList()" class="z-25"></app-bus-list>
 
-  <app-route-list [isVisible]="showRouteList && !isCreatingRoute" (selectRoute)="onSelectRoute($event)"
-    (close)="onCloseRouteList()" class="z-25">
-  </app-route-list>
+  <app-route-list [isVisible]="showRouteList && !isCreatingRoute" (selectRouteId)="onSelectRouteId($event)"
+    (close)="onCloseRouteList()" class="z-25"></app-route-list>
 
   <app-map-controls [isLocating]="isLocating" [isCreatingRoute]="isCreatingRoute" (getLocation)="getCurrentLocation()"
-    (startRoute)="startCreatingRoute()" class="z-20">
-  </app-map-controls>
+    (startRoute)="startCreatingRoute()" class="z-20"></app-map-controls>
 
-  <app-route-creator *ngIf="isCreatingRoute" [routeData]="newRoute" [hasDestination]="hasDestination"
-    [isAddingWaypoints]="isAddingWaypoints" (cancel)="cancelRouteCreation()" (save)="saveRoute()"
-    (clear)="clearRouteMarkers()" (colorChange)="updateRouteColor()" (toggleWaypoints)="toggleWaypointMode()"
-    class="z-40">
-  </app-route-creator>
-
-  <div *ngIf="isCreatingRoute && !hasOrigin"
-    class="absolute top-20 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-35">
-    <div class="flex items-center gap-2">
-      <div class="animate-pulse w-3 h-3 bg-white rounded-full"></div>
-      <span class="text-sm font-medium">Haz click en el mapa para colocar el ORIGEN (punto A)</span>
-    </div>
-  </div>
-
-  <div *ngIf="isCreatingRoute && hasOrigin && !hasDestination"
-    class="absolute top-20 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-35">
-    <div class="flex items-center gap-2">
-      <div class="animate-pulse w-3 h-3 bg-white rounded-full"></div>
-      <span class="text-sm font-medium">Ahora haz click para colocar el DESTINO (punto B)</span>
-    </div>
-  </div>
+  <app-route-creator *ngIf="isCreatingRoute && isMapReady" [map]="safeGoogleMap" (routeCreated)="onRouteCreated()"
+    (cancel)="onCancelRouteCreation()" class="z-40"></app-route-creator>
 
   <google-map [center]="center" [zoom]="zoom" [options]="mapOptions" [width]="mapWidth" [height]="mapHeight"
-    class="z-10">
-  </google-map>
+    class="z-10"></google-map>
 
-  <app-route-instructions [isCreatingRoute]="isCreatingRoute" [hasOrigin]="hasOrigin" [hasDestination]="hasDestination"
-    class="z-15">
-  </app-route-instructions>
+  <app-route-instructions [isCreatingRoute]="isCreatingRoute" [hasOrigin]="false" [hasDestination]="false"
+    class="z-15"></app-route-instructions>
 
   <div *ngIf="isLocating" class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-4 flex items-center gap-3">
-      <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-      <span class="text-gray-700">Obteniendo ubicación GPS...</span>
+    <div class="bg-white rounded-lg p-4 flex items-center gap-3 shadow-lg">
+      <lucide-icon name="loader-2" class="w-6 h-6 animate-spin"></lucide-icon>
+      <span class="text-gray-700">Obteniendo ubicación...</span>
+    </div>
+  </div>
+
+  <div *ngIf="!isMapReady" class="absolute inset-0 bg-gray-100 flex items-center justify-center z-5">
+    <div class="text-center">
+      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+      <span class="text-gray-600 text-sm">Cargando mapa...</span>
     </div>
   </div>
 </div>

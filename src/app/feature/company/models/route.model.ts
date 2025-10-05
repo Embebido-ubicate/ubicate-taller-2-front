@@ -1,34 +1,44 @@
-// Actualizar para coincidir con RouteResponse del servicio
-export interface Route {
+export interface RouteFormData {
+  nombre: string;
+  codigo: string;
+  colorHex: string;
+}
+
+export interface CreateRouteRequest {
+  nombre: string;
+  codigo: string;
+  descripcion?: string;
+  origen?: string;
+  destino?: string;
+  color_hex?: string;
+  polyline?: string;
+  bus_ids?: number[];
+}
+
+export interface UpdateRouteRequest {
+  nombre?: string;
+  descripcion?: string;
+  origen?: string;
+  destino?: string;
+  color_hex?: string;
+  polyline?: string;
+  estado?: string;
+  bus_ids?: number[];
+}
+
+export interface RouteResponse {
   id: number;
   nombre: string;
   codigo: string;
-  descripcion: string;
+  descripcion: string | null;
   origen: string;
   destino: string;
-  colorHex: string;
-  polyline: string;
+  color_hex: string | null;
+  polyline: string | null;
   estado: string;
   activo: boolean;
-  empresaId: number;
-  fechaCreacion: string;
-  buses: any[]; // Podrías tipar esto mejor según tu modelo de Bus
-}
-
-export interface RouteStats {
-  total_rutas: number;
-  rutas_activas: number;
-  rutas_inactivas: number;
-  rutas_por_estado: Record<string, number>;
-}
-
-export interface RoutePaginatedResponse {
-  content: Route[];
-  totalElements: number;
-  totalPages: number;
-  size: number;
-  number: number;
-  first: boolean;
-  last: boolean;
-  numberOfElements: number;
+  empresa_id: number;
+  fecha_creacion: string;
+  fecha_actualizacion?: string | null;
+  bus_ids: number[];
 }

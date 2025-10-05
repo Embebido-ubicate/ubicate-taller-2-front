@@ -1,13 +1,24 @@
+// src/app/feature/company/service/route/route-map.service.ts
 import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject, Observable, map, catchError, of } from 'rxjs';
-import { RouteService } from './route.service';
-import { Route } from '../../models/route.model';
+import {
+  BehaviorSubject,
+  Observable,
+  catchError,
+  finalize,
+  of,
+  tap,
+  map,
+} from 'rxjs';
+import { RouteService, EstadoRuta } from './route.service';
+import { RouteResponse } from '../../models/route.model';
+
+type AnyMarker = google.maps.marker.AdvancedMarkerElement | google.maps.Marker;
 
 @Injectable({ providedIn: 'root' })
 export class RouteMapService {
-  private routeService = inject(RouteService);
+  private api = inject(RouteService);
 
-  private routesSubject = new BehaviorSubject<Route[]>([]);
+  private routesSubject = new BehaviorSubject<RouteResponse[]>([]);
   private loadingSubject = new BehaviorSubject<boolean>(false);
   private errorSubject = new BehaviorSubject<string | null>(null);
 
@@ -15,147 +26,247 @@ export class RouteMapService {
   loading$ = this.loadingSubject.asObservable();
   error$ = this.errorSubject.asObservable();
 
-  // Directorio de renderizadores de rutas para el mapa
-  private routeRenderers = new Map<number, google.maps.DirectionsRenderer>();
+  private rendered = new Map<
+    number,
+    { polyline?: google.maps.Polyline; origin?: AnyMarker; dest?: AnyMarker }
+  >();
 
-  loadRoutes(page: number = 0, size: number = 50): Observable<Route[]> {
+  private infoWindow: google.maps.InfoWindow | null = null;
+  private geocoder: google.maps.Geocoder | null = null;
+  private addressCache = new Map<string, string>();
+  private geometryLoaded?: Promise<void>;
+
+  loadRoutes(estado?: EstadoRuta): Observable<RouteResponse[]> {
     this.loadingSubject.next(true);
     this.errorSubject.next(null);
-
-    return this.routeService.getRoutes(page, size).pipe(
-      map((response) => {
-        const routes = response.content || response; // Manejar respuesta paginada o array directo
-        this.routesSubject.next(routes);
-        this.loadingSubject.next(false);
-        return routes;
-      }),
-      catchError((error) => {
-        console.error('Error loading routes:', error);
+    return this.api.getRoutes(estado).pipe(
+      tap((routes) => this.routesSubject.next(routes)),
+      catchError(() => {
+        this.routesSubject.next([]);
         this.errorSubject.next('Error al cargar las rutas');
-        this.loadingSubject.next(false);
         return of([]);
-      })
+      }),
+      finalize(() => this.loadingSubject.next(false))
     );
   }
 
-  toggleRouteActive(routeId: number): Observable<Route | null> {
-    const currentRoutes = this.routesSubject.value;
-    const route = currentRoutes.find((r) => r.id === routeId);
+  getById(id: number): Observable<RouteResponse> {
+    return this.api.getRouteById(id);
+  }
 
-    if (!route) {
-      return of(null);
-    }
+  updateRoute(id: number, body: Partial<RouteResponse>) {
+    return this.api.updateRoute(id, body as any);
+  }
 
-    const newState = route.activo ? 'inactivo' : 'activo';
+  deleteRoute(id: number) {
+    return this.api.deleteRoute(id);
+  }
 
-    return this.routeService.updateRoute(routeId, { estado: newState }).pipe(
-      map((updatedRoute) => {
-        // Actualizar la lista local
-        const updatedRoutes = currentRoutes.map((r) =>
-          r.id === routeId ? updatedRoute : r
-        );
-        this.routesSubject.next(updatedRoutes);
-        return updatedRoute;
+  toggleRouteActive(routeId: number): Observable<RouteResponse | null> {
+    const current = this.routesSubject.value;
+    const found = current.find((r) => r.id === routeId);
+    if (!found) return of(null);
+    const nextEstado = (
+      found.estado === 'ACTIVA' ? 'INACTIVA' : 'ACTIVA'
+    ) as EstadoRuta;
+    return this.updateRoute(routeId, { estado: nextEstado } as any).pipe(
+      map((updated) => {
+        const list = current.map((r) => (r.id === routeId ? updated : r));
+        this.routesSubject.next(list);
+        return updated;
       }),
-      catchError((error) => {
-        console.error('Error toggling route:', error);
+      catchError(() => {
         this.errorSubject.next('Error al actualizar la ruta');
         return of(null);
       })
     );
   }
 
-  deleteRoute(routeId: number): Observable<boolean> {
-    return this.routeService.deleteRoute(routeId).pipe(
-      map(() => {
-        // Remover de la lista local
-        const currentRoutes = this.routesSubject.value;
-        const filteredRoutes = currentRoutes.filter((r) => r.id !== routeId);
-        this.routesSubject.next(filteredRoutes);
-
-        // Limpiar el renderer del mapa si existe
-        this.clearRouteFromMap(routeId);
-
-        return true;
-      }),
-      catchError((error) => {
-        console.error('Error deleting route:', error);
-        this.errorSubject.next('Error al eliminar la ruta');
-        return of(false);
-      })
-    );
-  }
-
-  // Métodos para el mapa
-  showRouteOnMap(route: Route, map: google.maps.Map): void {
-    if (!route.polyline) return;
-
-    // Limpiar renderer anterior si existe
+  async showRouteOnMap(
+    route: RouteResponse,
+    map: google.maps.Map
+  ): Promise<void> {
     this.clearRouteFromMap(route.id);
 
-    const directionsRenderer = new google.maps.DirectionsRenderer({
-      suppressMarkers: false,
-      draggable: false,
-      polylineOptions: {
-        strokeColor: route.colorHex,
-        strokeWeight: 4,
-        strokeOpacity: 0.8,
-      },
-    });
+    const bounds = new google.maps.LatLngBounds();
+    let start: google.maps.LatLng | null = null;
+    let end: google.maps.LatLng | null = null;
+    let polyline: google.maps.Polyline | undefined;
 
-    directionsRenderer.setMap(map);
-
-    // Si tienes el polyline, decodificarlo y mostrar la ruta
     if (route.polyline) {
-      try {
-        // Aquí podrías usar el polyline para mostrar la ruta
-        // Por ahora, creamos una ruta simple entre origen y destino
-        this.createSimpleRouteFromCoords(route, directionsRenderer);
-      } catch (error) {
-        console.error('Error showing route on map:', error);
+      if (!this.geometryLoaded) {
+        this.geometryLoaded = google.maps
+          .importLibrary('geometry')
+          .then(() => undefined);
+      }
+      await this.geometryLoaded;
+
+      const path =
+        google.maps.geometry.encoding.decodePath(route.polyline) || [];
+      if (path.length > 0) {
+        polyline = new google.maps.Polyline({
+          path,
+          strokeColor: route.color_hex || '#3367d6',
+          strokeOpacity: 0.9,
+          strokeWeight: 5,
+          map,
+        });
+        start = path[0];
+        end = path[path.length - 1];
+        path.forEach((p) => bounds.extend(p));
       }
     }
 
-    this.routeRenderers.set(route.id, directionsRenderer);
-  }
+    if (!start || !end) {
+      const [olat, olng] = route.origen.split(',').map(Number);
+      const [dlat, dlng] = route.destino.split(',').map(Number);
+      start = new google.maps.LatLng(olat, olng);
+      end = new google.maps.LatLng(dlat, dlng);
+      bounds.extend(start);
+      bounds.extend(end);
+    }
 
-  private createSimpleRouteFromCoords(
-    route: Route,
-    renderer: google.maps.DirectionsRenderer
-  ): void {
-    const [originLat, originLng] = route.origen.split(',').map(Number);
-    const [destLat, destLng] = route.destino.split(',').map(Number);
+    const origin = await this.createLabeledMarker(
+      map,
+      start,
+      'A',
+      '#10B981',
+      'Origen'
+    );
+    const dest = await this.createLabeledMarker(
+      map,
+      end,
+      'B',
+      '#EF4444',
+      'Destino'
+    );
 
-    const directionsService = new google.maps.DirectionsService();
-    const request: google.maps.DirectionsRequest = {
-      origin: { lat: originLat, lng: originLng },
-      destination: { lat: destLat, lng: destLng },
-      travelMode: google.maps.TravelMode.DRIVING,
-    };
+    if (!bounds.isEmpty()) map.fitBounds(bounds);
 
-    directionsService.route(request, (result, status) => {
-      if (status === google.maps.DirectionsStatus.OK && result) {
-        renderer.setDirections(result);
-      }
-    });
+    this.rendered.set(route.id, { polyline, origin, dest });
   }
 
   clearRouteFromMap(routeId: number): void {
-    const renderer = this.routeRenderers.get(routeId);
-    if (renderer) {
-      renderer.setMap(null);
-      this.routeRenderers.delete(routeId);
+    const r = this.rendered.get(routeId);
+    if (r) {
+      r.polyline?.setMap(null);
+      if ((r.origin as any)?.map !== undefined) (r.origin as any).map = null;
+      else (r.origin as google.maps.Marker | undefined)?.setMap(null);
+      if ((r.dest as any)?.map !== undefined) (r.dest as any).map = null;
+      else (r.dest as google.maps.Marker | undefined)?.setMap(null);
+      this.rendered.delete(routeId);
     }
   }
 
   clearAllRoutesFromMap(): void {
-    this.routeRenderers.forEach((renderer) => {
-      renderer.setMap(null);
-    });
-    this.routeRenderers.clear();
+    Array.from(this.rendered.keys()).forEach((id) =>
+      this.clearRouteFromMap(id)
+    );
   }
 
-  getRoutes(): Route[] {
+  getRoutes(): RouteResponse[] {
     return this.routesSubject.value;
+  }
+
+  private ensureInfoHelpers() {
+    if (!this.infoWindow) this.infoWindow = new google.maps.InfoWindow();
+    if (!this.geocoder) this.geocoder = new google.maps.Geocoder();
+  }
+
+  private getMarkerLatLng(m: AnyMarker): google.maps.LatLng {
+    const pos: any =
+      (m as any).position ?? (m as google.maps.Marker).getPosition?.();
+    if (pos?.lat && typeof pos.lat === 'function')
+      return pos as google.maps.LatLng;
+    if (pos && typeof pos.lat === 'number' && typeof pos.lng === 'number') {
+      return new google.maps.LatLng(pos.lat, pos.lng);
+    }
+    return pos as google.maps.LatLng;
+  }
+
+  private async showAddressOnMarkerClick(marker: AnyMarker, title: string) {
+    this.ensureInfoHelpers();
+    const pos = this.getMarkerLatLng(marker);
+    const key = `${pos.lat().toFixed(6)},${pos.lng().toFixed(6)}`;
+
+    if (!this.addressCache.has(key)) {
+      const res = await this.geocoder!.geocode({ location: pos });
+      const addr =
+        res.results?.[0]?.formatted_address ||
+        `Lat ${pos.lat().toFixed(6)}, Lng ${pos.lng().toFixed(6)}`;
+      this.addressCache.set(key, addr);
+    }
+
+    const address = this.addressCache.get(key)!;
+    this.infoWindow!.setContent(
+      `<div style="min-width:220px">
+         <div style="font-weight:600;margin-bottom:4px">${title}</div>
+         <div style="font-size:12px;line-height:1.3">${address}</div>
+       </div>`
+    );
+    this.infoWindow!.setPosition(pos);
+    this.infoWindow!.open(
+      ((marker as any).map as google.maps.Map | null) || undefined
+    );
+  }
+
+  private async createLabeledMarker(
+    map: google.maps.Map,
+    position: google.maps.LatLng | google.maps.LatLngLiteral,
+    glyph: string,
+    bg: string,
+    title: string
+  ): Promise<AnyMarker> {
+    const hasVectorMapId = !!(map as any)?.get?.('mapId');
+
+    if (hasVectorMapId) {
+      const { AdvancedMarkerElement, PinElement } =
+        (await google.maps.importLibrary(
+          'marker'
+        )) as google.maps.MarkerLibrary;
+
+      const pin = new PinElement({
+        background: bg,
+        borderColor: '#ffffff',
+        glyphColor: '#ffffff',
+        glyph,
+        scale: 1.5,
+      });
+
+      const adv = new AdvancedMarkerElement({
+        map,
+        position,
+        title,
+        content: pin.element,
+      });
+
+      (adv as any).addListener('gmp-click', () =>
+        this.showAddressOnMarkerClick(adv, title)
+      );
+      return adv;
+    } else {
+      const marker = new google.maps.Marker({
+        map,
+        position,
+        title,
+        icon: {
+          url: 'https://maps.gstatic.com/mapfiles/api-3/images/spotlight-poi2_hdpi.png',
+          scaledSize: new google.maps.Size(28, 28),
+          anchor: new google.maps.Point(14, 28),
+          labelOrigin: new google.maps.Point(14, 10),
+        },
+        label: {
+          text: glyph,
+          color: '#ffffff',
+          fontSize: '12px',
+          fontWeight: '700',
+        },
+      });
+
+      marker.addListener('click', () =>
+        this.showAddressOnMarkerClick(marker, title)
+      );
+      return marker;
+    }
   }
 }
